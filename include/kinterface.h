@@ -159,7 +159,7 @@ kfunction void (*krwlock_write_unlock)(volatile kuint* lock);
  * Kernel Interface: Thread's
  */
 
-kfunction kuint (*kthread_create)(void (*function)(void* data), void* data, kint priorty);
+kfunction kuint (*kthread_create)(void (*function)(void* data), void* data, kuint stack_size, kuint flags);
 
 kfunction kuint (*kthread_current)(void);
 

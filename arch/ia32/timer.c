@@ -24,7 +24,7 @@ struct timer timer_list;
 kuint timer_count;
 
 void ktimer_init(void) {
-	kthread_create(timer_thread, KNULL, 0);
+	kthread_create(timer_thread, KNULL, 0, 0);
 }
 
 kfunction kuint ktimer_add(void (*function)(void* data), void* data, kint64 second, kint32 nanosecond) {

@@ -65,10 +65,10 @@ void handle_exception(kuint number, struct processor_regs* regs) {
 	);
 
 	kprintf("Exception=%02x\n", number);
-	kprintf("eflags=%08x cs=%08x eip=%08x error=%08x\n", regs->eflags, regs->cs, regs->eip, regs->error);
-	kprintf("eax=%08x ebx=%08x ecx=%08x edx=%08x\n", regs->eax, regs->ebx, regs->ecx, regs->edx);
-	kprintf("edi=%08x esi=%08x ebp=%08x esp=%08x\n", regs->edi, regs->esi, regs->ebp, regs->esp);
-	kprintf("cr0=%08x cr1=%08x cr2=%08x cr3=%08x cr4=%08x\n", cr0, cr1, cr2, cr3, cr4);
+	kprintf("eflags=%0.8x cs=%0.8x eip=%0.8x error=%0.8x\n", regs->eflags, regs->cs, regs->eip, regs->error);
+	kprintf("eax=%0.8x ebx=%0.8x ecx=%0.8x edx=%0.8x\n", regs->eax, regs->ebx, regs->ecx, regs->edx);
+	kprintf("edi=%0.8x esi=%0.8x ebp=%0.8x esp=%0.8x\n", regs->edi, regs->esi, regs->ebp, regs->esp);
+	kprintf("cr0=%0.8x cr1=%0.8x cr2=%0.8x cr3=%0.8x cr4=%0.8x\n", cr0, cr1, cr2, cr3, cr4);
 
 	print_stack_trace(regs);
 

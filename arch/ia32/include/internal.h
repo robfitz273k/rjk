@@ -78,6 +78,7 @@ void ktimer_init(void);
 void kmemory_init(void);
 void kthread_kill_current(void);
 void print_stack_trace(struct processor_regs* regs);
+void raw_print(kuint8* buffer);
 
 extern struct kinterface _kinterface;
 
@@ -192,7 +193,7 @@ kfunction void krwlock_write_unlock(volatile kuint* lock);
  * Kernel Interface: Thread's
  */
 
-kfunction kuint kthread_create(void (*function)(void* data), void* data, kint priorty);
+kfunction kuint kthread_create(void (*function)(void* data), void* data, kuint stack_size, kuint flags);
 
 kfunction kuint kthread_current(void);
 

@@ -48,6 +48,13 @@ kuint _start(struct kinterface* _kinterface) {
 		kinterface->kprintf("%f %f %f\n", fu, fv, fr);
 	}
 
+	{
+		kinterface->kprintf("12345678901234567890\n");
+		kinterface->kprintf("%#0.8hd\n", -123);
+		kinterface->kprintf("%#0.8ho\n", -123);
+		kinterface->kprintf("%#0.8hx\n", -123);
+	}
+
 	return 0;
 }
 

@@ -116,20 +116,24 @@ void ktime_init(void) {
 }
 
 kfunction void ktime_get(kint64* second, kint32* nanosecond) {
-	kspinlock_lock(&ktime_spinlock);
+	kuint irqsave;
+
+	kspinlock_lock_irqsave(&ktime_spinlock, &irqsave);
 
 	*second = current_second;
 	*nanosecond = current_nanosecond;
 
-	kspinlock_unlock(&ktime_spinlock);
+	kspinlock_unlock_irqrestore(&ktime_spinlock, &irqsave);
 }
 
 kfunction void ktime_set(kint64 second, kint32 nanosecond) {
-	kspinlock_lock(&ktime_spinlock);
+	kuint irqsave;
+
+	kspinlock_lock_irqsave(&ktime_spinlock, &irqsave);
 
 	current_second = second;
 	current_nanosecond = nanosecond;
 
-	kspinlock_unlock(&ktime_spinlock);
+	kspinlock_unlock_irqrestore(&ktime_spinlock, &irqsave);
 }
 

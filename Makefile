@@ -33,7 +33,7 @@ module.elf : \
 all : kernel.elf module.elf
 
 clean :
-	$(RM) arch/ia32/*.o module/*.o *.elf *.out
+	$(RM) arch/ia32/*.o module/*.o *.elf *.out *.log
 
 install : all
 	mount $(FLOPPY_MOUNT_POINT)

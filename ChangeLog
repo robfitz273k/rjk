@@ -1,0 +1,20 @@
+2001-05-13  Robert Fitzsimons  <robfitz@273k.net>
+
+	* Changed the prototype for kthread_create to except the size of
+	the stack to be used by the thread, in pages.
+	* Changed the initization code to use a new function to print
+	message to the screen, this new function doesn't print out
+	grabage.
+	* Integreated a patch from Richard Russo <rrusso@cs.ucf.edu> which
+	adds better support for printing floating point numbers.
+	* Rewrote the flag handling in the kprintf functions to better
+	support the ISO C printf flags.
+	* Rewrote the thread code to return a thread id to the callers
+	instead of a pointer cast to a kuint.
+	* Fixed a problem with the translation lookaside buffers not being
+	flushed when page table directory was changed.
+	* Use irqsave version of the spinlock in the time and memory code
+	to stop a deadlock with the interrupt thread.
+	* Removed debug messages from the rwlock code.
+	* Some code cleanups.
+

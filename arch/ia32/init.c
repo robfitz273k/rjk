@@ -29,7 +29,7 @@ kuint setup(struct multiboot_info* mb_info_local) {
 	mb_info = mb_info_local;
 
 	if(!(mb_info->flags & 1)) {
-		kprintf("RJK needs to have it's data page-aligned by GRUB\n");
+		raw_print("RJK needs to have it's data page-aligned by GRUB\n");
 		while(1) {}
 	}
 
@@ -47,7 +47,7 @@ kuint setup(struct multiboot_info* mb_info_local) {
 			mb_max = max(mb_max, mod->mod_end);
 		}
 	} else {
-		kprintf("RJK needs to have a module passed in by GRUB\n");
+		raw_print("RJK needs to have a module passed in by GRUB\n");
 		while(1) {}
 	}
 
@@ -96,12 +96,12 @@ void init(void) {
 	}
 
 	if(entry) {
-		kthread_create(start_module, KNULL, 0);
+		kthread_create(start_module, KNULL, 0, 0);
 	} else {
 		kprintf("Don't have a module entry point to jump to!\n");
 	}
 
-	kthread_create(idle, KNULL, 0);
+	kthread_create(idle, KNULL, 0, 0);
 }
 
 void idle(void* data) {

@@ -44,9 +44,6 @@
 	call	\isr_handler
 	addl	$8, %esp
 	RESTOREREGS
-#	.if	!\error_code
-#	popf
-#	.endif
 	addl	$4, %esp
 	iret
 	.endm

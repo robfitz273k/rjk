@@ -24,7 +24,7 @@
 #define ZONE_NORMAL 0x00000000
 #define ZONE_COUNT  0x00000003
 
-#define tbl_invalidate() ({ \
+#define tlb_invalidate() ({ \
 	asm volatile( \
 		"movl %0, %%cr3 ;" \
 		: \
@@ -164,8 +164,9 @@ kfunction kuint kmemory_linear_page_allocate(kuint count, kuint dma) {
 	kuint address;
 	kuint local;
 	kuint i;
+	kuint irqsave;
 
-	kspinlock_lock(&kmemory_spinlock);
+	kspinlock_lock_irqsave(&kmemory_spinlock, &irqsave);
 
 	local = address = get_free_pages(count, ((dma) ? (ZONE_DMA) : (ZONE_NORMAL)));
 
@@ -177,7 +178,9 @@ kfunction kuint kmemory_linear_page_allocate(kuint count, kuint dma) {
 		}
 	}
 
-	kspinlock_unlock(&kmemory_spinlock);
+	tlb_invalidate();
+
+	kspinlock_unlock_irqrestore(&kmemory_spinlock, &irqsave);
 
 	return address;
 }
@@ -190,7 +193,9 @@ kfunction kuint kmemory_linear_page_map(kuint address, kuint count) {
 	kuint local = address;
 	kuint i;
 
-	kspinlock_lock(&kmemory_spinlock);
+	kuint irqsave;
+
+	kspinlock_lock_irqsave(&kmemory_spinlock, &irqsave);
 
 	for(i = 0; i < count; i++) {
 		set_virtual_entry(local, local, (VIRTUAL_ALLOCATED | VIRTUAL_READWRITE | VIRTUAL_USERSUPER | VIRTUAL_LINEAR));
@@ -198,7 +203,9 @@ kfunction kuint kmemory_linear_page_map(kuint address, kuint count) {
 		local += KPAGESIZE;
 	}
 
-	kspinlock_unlock(&kmemory_spinlock);
+	tlb_invalidate();
+
+	kspinlock_unlock_irqrestore(&kmemory_spinlock, &irqsave);
 
 	return address;
 }
@@ -211,7 +218,9 @@ kfunction void* kmemory_virtual_page_allocate(kuint count, kuint zero) {
 	struct vm_page** prev;
 	struct vm_page* current;
 
-	kspinlock_lock(&kmemory_spinlock);
+	kuint irqsave;
+
+	kspinlock_lock_irqsave(&kmemory_spinlock, &irqsave);
 
 	prev = &virtual_block->free;
 	current = (*prev);
@@ -291,13 +300,15 @@ done:
 	current->next = virtual_block->used;
 	virtual_block->used = current;
 
-	kspinlock_unlock(&kmemory_spinlock);
+	tlb_invalidate();
+
+	kspinlock_unlock_irqrestore(&kmemory_spinlock, &irqsave);
 
 	return (void*)current->page;
 
 end:
 
-	kspinlock_unlock(&kmemory_spinlock);
+	kspinlock_unlock_irqrestore(&kmemory_spinlock, &irqsave);
 
 	return KNULL;
 }
@@ -305,8 +316,9 @@ end:
 kfunction void kmemory_virtual_page_unallocate(void* pointer) {
 	struct vm_page** prev;
 	struct vm_page* current;
+	kuint irqsave;
 
-	kspinlock_lock(&kmemory_spinlock);
+	kspinlock_lock_irqsave(&kmemory_spinlock, &irqsave);
 
 	prev = &virtual_block->used;
 	current = (*prev);
@@ -362,9 +374,11 @@ done:
 	current->next = virtual_block->free;
 	virtual_block->free = current;
 
+	tlb_invalidate();
+
 end:
 
-	kspinlock_unlock(&kmemory_spinlock);
+	kspinlock_unlock_irqrestore(&kmemory_spinlock, &irqsave);
 
 	return;
 }
@@ -497,6 +511,8 @@ void set_virtual_entry(kuint vaddr, kuint laddr, kuint flags) {
 		set_virtual_entry(temp, temp, (VIRTUAL_ALLOCATED | VIRTUAL_READWRITE | VIRTUAL_USERSUPER | VIRTUAL_LINEAR));
 		set_linear_entry(temp, temp, (LINEAR_ALLOCATED));
 
+		tlb_invalidate();
+
 		clear_pages(temp, 1); 
 	}
 
@@ -604,13 +620,11 @@ void print_page_table(void) {
 	kuint* ptd;
 	kuint i1;
 
-/*
+	kprintf("Virtual Memory Info\n%#0.8x %#0.8x %#0.8x\n", virtual_address, virtual_block->free_count, virtual_block->used_count);
 	kprintf("Zones\n");
 	for(i1 = 0; i1 < ZONE_COUNT; i1++) {
-		kprintf("%08x %08x %08x\n", zones[i1].next, zones[i1].start, zones[i1].end);
+		kprintf("%0.8x %0.8x %0.8x\n", zones[i1].next, zones[i1].start, zones[i1].end);
 	}
-*/
-/*
 	kprintf("Linear Page Tables\n");
 	ptd = linear_page_table_directory;
 	for(i1 = 0; i1 < 1024; i1++) {
@@ -618,16 +632,15 @@ void print_page_table(void) {
 			kuint* pt = (kuint*)(ptd[i1] & 0xFFFFF000);
 			kuint i2;
 
-			kprintf("%08x %08x %08x %08x\n", i1, (i1 << 22), ptd[i1], &ptd[i1]);
+			kprintf("%0.8x %0.8x %0.8x %0.8x\n", i1, (i1 << 22), ptd[i1], &ptd[i1]);
 
 			for(i2 = 0; i2 < 1024; i2++) {
 				if(pt[i2] & (LINEAR_ALLOCATED)) {
-					kprintf(" %08x %08x %08x %08x %08x\n", i1, i2, ((i1 << 22) | (i2 << 12)), pt[i2], &pt[i2]);
+					kprintf(" %0.8x %0.8x %0.8x %0.8x %0.8x\n", i1, i2, ((i1 << 22) | (i2 << 12)), pt[i2], &pt[i2]);
 				}
 			}
 		}
 	}
-*/
 	kprintf("Virtual Page Tables\n");
 	ptd = virtual_page_table_directory;
 	for(i1 = 0; i1 < 1024; i1++) {
@@ -635,11 +648,11 @@ void print_page_table(void) {
 			kuint* pt = (kuint*)(ptd[i1] & 0xFFFFF000);
 			kuint i2;
 
-			kprintf("%08x %08x %08x %08x\n", i1, (i1 << 22), ptd[i1], &ptd[i1]);
+			kprintf("%0.8x %0.8x %0.8x %0.8x\n", i1, (i1 << 22), ptd[i1], &ptd[i1]);
 
 			for(i2 = 0; i2 < 1024; i2++) {
 				if(pt[i2] & (VIRTUAL_ALLOCATED | VIRTUAL_ASSIGNED)) {
-					kprintf(" %08x %08x %08x %08x %08x\n", i1, i2, ((i1 << 22) | (i2 << 12)), pt[i2], &pt[i2]);
+					kprintf(" %0.8x %0.8x %0.8x %0.8x %0.8x\n", i1, i2, ((i1 << 22) | (i2 << 12)), pt[i2], &pt[i2]);
 				}
 			}
 		}
@@ -746,6 +759,8 @@ kuint read_elf(kuint8* buffer, kuint* entry) {
 			}
 		}
 
+		tlb_invalidate();
+
 		*entry = elf_h->e_entry;
 
 		return 0;
@@ -783,6 +798,8 @@ void handle_page_fault(kuint number, struct processor_regs* regs) {
 				clear_pages(cr2_local, 1); 
 			}
 
+			tlb_invalidate();
+
 			kspinlock_unlock(&kmemory_spinlock);
 
 			return;
@@ -792,7 +809,7 @@ void handle_page_fault(kuint number, struct processor_regs* regs) {
 	kspinlock_unlock(&kmemory_spinlock);
 
 	kprintf(
-		"Page Fault\ncr2: %08x\neip: %08x\nerror: %08x\n",
+		"Page Fault\ncr2: %0.8x\neip: %0.8x\nerror: %0.8x\n",
 		cr2,
 		regs->eip,
 		regs->error
