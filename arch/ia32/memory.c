@@ -10,6 +10,7 @@
 
 #define VIRTUAL_ALLOCATED 0x00000001
 #define VIRTUAL_READWRITE 0x00000002
+#define VIRTUAL_USERSUPER 0x00000004
 #define VIRTUAL_LINEAR    0x00000200
 
 #define VIRTUAL_ASSIGNED  0x00000200
@@ -143,7 +144,7 @@ void kmemory_virtual_setup(void) {
 
 		if((kuint)pt & (LINEAR_ALLOCATED)) {
 			(kuint)pt &= 0xFFFFF000;
-			set_virtual_entry((kuint)pt, (kuint)pt, (VIRTUAL_ALLOCATED | VIRTUAL_READWRITE | VIRTUAL_LINEAR));
+			set_virtual_entry((kuint)pt, (kuint)pt, (VIRTUAL_ALLOCATED | VIRTUAL_READWRITE | VIRTUAL_USERSUPER | VIRTUAL_LINEAR));
 			set_linear_entry((kuint)pt, (kuint)pt, (LINEAR_ALLOCATED));
 
 			for(i2 = 0; i2 < 1024; i2++) {
@@ -151,7 +152,7 @@ void kmemory_virtual_setup(void) {
 
 				if(addr & (LINEAR_ALLOCATED)) {
 					addr &= 0xFFFFF000;
-					set_virtual_entry(addr, addr, (VIRTUAL_ALLOCATED | VIRTUAL_READWRITE | VIRTUAL_LINEAR));
+					set_virtual_entry(addr, addr, (VIRTUAL_ALLOCATED | VIRTUAL_READWRITE | VIRTUAL_USERSUPER | VIRTUAL_LINEAR));
 					set_linear_entry(addr, addr, (LINEAR_ALLOCATED));
 				}
 			}
@@ -170,7 +171,7 @@ kfunction kuint kmemory_linear_page_allocate(kuint count, kuint dma) {
 
 	if(address) {
 		for(i = 0; i < count; i++) {
-			set_virtual_entry(local, local, (VIRTUAL_ALLOCATED | VIRTUAL_READWRITE | VIRTUAL_LINEAR));
+			set_virtual_entry(local, local, (VIRTUAL_ALLOCATED | VIRTUAL_READWRITE | VIRTUAL_USERSUPER | VIRTUAL_LINEAR));
 			set_linear_entry(local, local, (LINEAR_ALLOCATED));
 			local += KPAGESIZE;
 		}
@@ -192,7 +193,7 @@ kfunction kuint kmemory_linear_page_map(kuint address, kuint count) {
 	kspinlock_lock(&kmemory_spinlock);
 
 	for(i = 0; i < count; i++) {
-		set_virtual_entry(local, local, (VIRTUAL_ALLOCATED | VIRTUAL_READWRITE | VIRTUAL_LINEAR));
+		set_virtual_entry(local, local, (VIRTUAL_ALLOCATED | VIRTUAL_READWRITE | VIRTUAL_USERSUPER | VIRTUAL_LINEAR));
 		set_linear_entry(local, local, (LINEAR_ALLOCATED));
 		local += KPAGESIZE;
 	}
@@ -231,7 +232,7 @@ kfunction void* kmemory_virtual_page_allocate(kuint count, kuint zero) {
 			goto end;
 		}
 
-		set_virtual_entry((kuint)page, (kuint)page, (VIRTUAL_ALLOCATED | VIRTUAL_READWRITE | VIRTUAL_LINEAR));
+		set_virtual_entry((kuint)page, (kuint)page, (VIRTUAL_ALLOCATED | VIRTUAL_READWRITE | VIRTUAL_USERSUPER | VIRTUAL_LINEAR));
 		set_linear_entry((kuint)page, (kuint)page, (LINEAR_ALLOCATED));
 		clear_pages((kuint)page, 1);
 
@@ -262,12 +263,12 @@ found:
 					goto end;
 				}
 
-				set_virtual_entry((kuint)pt, (kuint)pt, (VIRTUAL_ALLOCATED | VIRTUAL_READWRITE | VIRTUAL_LINEAR));
+				set_virtual_entry((kuint)pt, (kuint)pt, (VIRTUAL_ALLOCATED | VIRTUAL_READWRITE | VIRTUAL_USERSUPER | VIRTUAL_LINEAR));
 				set_linear_entry((kuint)pt, (kuint)pt, (LINEAR_ALLOCATED));
 
 				clear_pages((kuint)pt, 1); 
 
-				virtual_page_table_directory[i1] = ((kuint)pt | VIRTUAL_ALLOCATED | VIRTUAL_READWRITE | VIRTUAL_LINEAR);
+				virtual_page_table_directory[i1] = ((kuint)pt | VIRTUAL_ALLOCATED | VIRTUAL_READWRITE | VIRTUAL_USERSUPER | VIRTUAL_LINEAR);
 			}
 
 			while(i2 < 1024) {
@@ -492,8 +493,8 @@ void set_virtual_entry(kuint vaddr, kuint laddr, kuint flags) {
 	if(!(*pt)) {
 		kuint temp = get_free_pages(1, ZONE_NORMAL);
 
-		*pt = (temp | VIRTUAL_ALLOCATED | VIRTUAL_READWRITE | VIRTUAL_LINEAR);
-		set_virtual_entry(temp, temp, (VIRTUAL_ALLOCATED | VIRTUAL_READWRITE | VIRTUAL_LINEAR));
+		*pt = (temp | VIRTUAL_ALLOCATED | VIRTUAL_READWRITE | VIRTUAL_USERSUPER | VIRTUAL_LINEAR);
+		set_virtual_entry(temp, temp, (VIRTUAL_ALLOCATED | VIRTUAL_READWRITE | VIRTUAL_USERSUPER | VIRTUAL_LINEAR));
 		set_linear_entry(temp, temp, (LINEAR_ALLOCATED));
 
 		clear_pages(temp, 1); 
@@ -712,7 +713,7 @@ kuint read_elf(kuint8* buffer, kuint* entry) {
 					kuint j;
 
 					for(j = 0; j < count; j++) {
-						set_virtual_entry(vaddr, laddr, (VIRTUAL_ALLOCATED | VIRTUAL_READWRITE));
+						set_virtual_entry(vaddr, laddr, (VIRTUAL_ALLOCATED | VIRTUAL_READWRITE | VIRTUAL_USERSUPER));
 						set_linear_entry(vaddr, laddr, (LINEAR_ALLOCATED));
 						clear_pages(vaddr, 1);
 						laddr += KPAGESIZE;
@@ -775,7 +776,7 @@ void handle_page_fault(kuint number, struct processor_regs* regs) {
 			kuint address = get_free_pages(1, ZONE_NORMAL);
 			kuint cr2_local = (cr2 & 0xFFFFF000);
 
-			*page = (address | VIRTUAL_ALLOCATED | VIRTUAL_READWRITE | VIRTUAL_LINEAR);
+			*page = (address | VIRTUAL_ALLOCATED | VIRTUAL_READWRITE | VIRTUAL_USERSUPER | VIRTUAL_LINEAR);
 			set_linear_entry(cr2_local, address, (LINEAR_ALLOCATED));
 
 			if(page_local & VIRTUAL_ZERO) {

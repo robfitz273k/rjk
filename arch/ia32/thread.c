@@ -51,6 +51,7 @@ kuint kthread_setup(void) {
 kfunction kuint kthread_create(void (*function)(void* data), void* data, kint priority) {
 	struct thread* ntp;
 	kuint* stack;
+	kuint irqsave;
 
 	if((ntp = kmemory_virtual_page_allocate(1, 1))) {
 		ntp->status = STATUS_ALIVE;
@@ -78,12 +79,19 @@ kfunction kuint kthread_create(void (*function)(void* data), void* data, kint pr
 			stack[-13] = 0; /* ebp */
 			stack[-14] = 0; /* esp */
 
-			kspinlock_lock(&kthread_spinlock);
+			kspinlock_lock_irqsave(&kthread_spinlock, &irqsave);
+
+			asm volatile(
+				"fnsave %0 ;"
+				"fnsave %1 ;"
+				"frstor %0 ;"
+				: "=m" (current_thread->fpu), "=m" (ntp->fpu)
+			);
 
 			ntp->next = current_thread->next;
 			current_thread->next = ntp;
 
-			kspinlock_unlock(&kthread_spinlock);
+			kspinlock_unlock_irqrestore(&kthread_spinlock, &irqsave);
 
 			asm volatile(
 				"int $0x30 ;"
@@ -234,7 +242,7 @@ void thread_switch(struct processor_regs* regs) {
 	kspinlock_lock(&kthread_spinlock);
 
 	asm volatile(
-		"fsave %0 ;"
+		"fnsave %0 ;"
 		: "=m" (current_thread->fpu)
 	);
 

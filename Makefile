@@ -36,14 +36,15 @@ clean :
 	$(RM) arch/ia32/*.o module/*.o *.elf *.out
 
 install : all
-	mount /mnt/fd0
-	cp -f kernel.elf /mnt/fd0
-	cp -f module.elf /mnt/fd0
-	umount /mnt/fd0
+	mount $(FLOPPY_MOUNT_POINT)
+	cp -f kernel.elf $(FLOPPY_MOUNT_POINT)
+	cp -f module.elf $(FLOPPY_MOUNT_POINT)
+	umount $(FLOPPY_MOUNT_POINT)
 
 CC = gcc
 CFLAGS = -O0 -g -Wall -Wstrict-prototypes
 CINC = -I include -I arch/ia32/include
+FLOPPY_MOUNT_POINT = /mnt/fd0
 
 .SUFFIXES :
 .SUFFIXES : .o .elf

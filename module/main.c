@@ -28,6 +28,26 @@ kuint _start(struct kinterface* _kinterface) {
 		}
 	}
 
+	{
+		kfloat fu = 0;
+		kfloat fv = 0;
+		kfloat fr = 0;
+
+		kinterface->kprintf("%f %f %f\n", fu, fv, fr);
+
+		fu = 12434384.4243;
+
+		kinterface->kprintf("%f %f %f\n", fu, fv, fr);
+
+		fv = 1244.42;
+
+		kinterface->kprintf("%f %f %f\n", fu, fv, fr);
+
+		fr = fu / fv;
+
+		kinterface->kprintf("%f %f %f\n", fu, fv, fr);
+	}
+
 	return 0;
 }
 
