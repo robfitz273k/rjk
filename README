@@ -1,0 +1,9 @@
+RJK (Robert's JOS Kernel)
+
+RJK is a kernel for The JOS Project <URL:http://www.jos.org/>.  It
+currently only supports x86 processors and requires a Linux system
+to build it.
+
+Robert Fitzsimons
+robfitz@273k.net
+

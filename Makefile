@@ -1,34 +1,60 @@
 #
-# Copyright (C) 2000 Robert Fitzsimons
+# Copyright (C) 2000, 2001 Robert Fitzsimons
+#
+# This file is subject to the terms and conditions of the GNU General
+# Public License.  See the file "COPYING" in the main directory of
+# this archive for more details.
 #
 
-TARGETS = \
-	start.o init.o katomic.o kdebug.o kioport.o kirq.o kmemory.o \
-	kstart.o kthread.o ktime.o
+kernel.elf : ELF_LINKER_FLAGS=-Wl,-Ttext,0x00100000
+kernel.elf : \
+	arch/ia32/start.o \
+	arch/ia32/entry.o \
+	arch/ia32/init.o \
+	arch/ia32/atomic.o \
+	arch/ia32/debug.o \
+	arch/ia32/internal.o \
+	arch/ia32/ioport.o \
+	arch/ia32/irq.o \
+	arch/ia32/memory.o \
+	arch/ia32/module.o \
+	arch/ia32/mutex.o \
+	arch/ia32/processor.o \
+	arch/ia32/spinlock.o \
+	arch/ia32/thread.o \
+	arch/ia32/time.o \
+	arch/ia32/timer.o \
 
-CFLAGS = -g -Wall -I.
+module.elf : \
+	module/main.o \
 
-kernel.elf : $(TARGETS)
-	$(CC) -nostartfiles -static -Wl,-Ttext,0x00100000,--sort-common \
-		-o $@ -lgcc $^
-	objdump $@ --all-headers --disassemble-all > $@.dump
-
-all : kernel.elf
+all : kernel.elf module.elf
 
 clean :
-	$(RM) *.o *.elf *.dump
+	$(RM) arch/ia32/*.o module/*.o *.elf *.out
 
 install : all
-	mount /mnt/floppy
-	cp -f kernel.elf /mnt/floppy
-	umount /mnt/floppy
+	mount /mnt/fd0
+	cp -f kernel.elf /mnt/fd0
+	cp -f module.elf /mnt/fd0
+	umount /mnt/fd0
+
+CC = gcc
+CFLAGS = -O0 -g -Wall
+CINC = -I include -I arch/ia32/include
 
 .SUFFIXES :
-.SUFFIXES : .o
+.SUFFIXES : .o .elf
 
 %.o : %.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) $(CFLAGS_EXTRA) $(CINC) -c \
+		-o $@ $<
 
 %.o : %.S
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) $(CFLAGS_EXTRA) $(CINC) -c \
+		-o $@ $<
+
+%.elf :
+	$(CC) -nostartfiles -nostdlib -static $(ELF_LINKER_FLAGS) -o $@ $^ -lgcc
+	objdump --disassemble-all --all-headers --line-numbers --source $@ > $@.out
 

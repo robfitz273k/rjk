@@ -1,8 +1,12 @@
 /*
- * Copyright (C) 2000 Robert Fitzsimons
+ * Copyright (C) 2000, 2001 Robert Fitzsimons
+ *
+ * This file is subject to the terms and conditions of the GNU General
+ * Public License.  See the file "COPYING" in the main directory of
+ * this archive for more details.
  */
 
-#include "kinterface.h"
+#include "kinternal.h"
 
 #define UNSIGNED 0x00000001
 #define HEX      0x00000010
@@ -11,13 +15,13 @@
 #define MINUS    0x00001000
 #define ADDRESS  0x00002000
 
-kuint video_memory = 0x000B8000;
-kuint video_size = 80 * 25 * 2;
-kuint video_next = 0;
-kuint8* digits = "0123456789ABCDEF";
-kuint16 blank = (kuint16)((7 << 8) | ' ');
+static kuint8* digits = "0123456789ABCDEF";
+static kuint8* blank_line = " \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07";
+kuint video_memory;
+kuint video_next;
+volatile kuint kdebug_spinlock;
 
-void write_character(kuint8 c);
+void write_character(kuint c);
 void write_string(kuint8* s);
 void write_number_kuint(kuint number, kuint flags);
 void write_number_kuint32(kuint32 number, kuint flags);
@@ -29,16 +33,21 @@ void write_number_kfloat64(kfloat64 number, kuint flags);
 kfunction void kdebug_init() {
 	kuint i;
 
-	kmemory_linear_page_allocate(video_memory, (video_size / kpage_size) + 1); 
+	video_memory = 0x000B8000;
 
-	for(i = 0; i < (80 * 25 * 2); i += 2) {
-		kmemory_linear_write_kuint16((video_memory + i), blank);
+	kmemory_linear_page_map(video_memory, ((80 * 25 * 2) / KPAGESIZE) + 1); 
+
+	for(i = 0; i < (80 * 25 * 2); i += (80 * 2)) {
+		kmemory_virtual_copy((void*)(video_memory + i), (void*)blank_line, (80 * 2));
 	}
 }
 
 kfunction void kdebug(kuint8* format, ...) {
-	kuint8 c;
+	kuint flags;
+	kuint c;
 	va_list args;
+
+	kspinlock_lock_irqsave(&kdebug_spinlock, &flags);
 
 	va_start(args, format);
 	while((c = *(format++)) != '\0') {
@@ -58,7 +67,7 @@ kfunction void kdebug(kuint8* format, ...) {
 					continue;
 				case 's':
 					t = (void*)va_arg(args, kuint8*);
-					if((kuint8*)t != knull) {
+					if(t) {
 						write_string((kuint8*)t);
 					} else {
 						write_string("(nil)");
@@ -66,7 +75,7 @@ kfunction void kdebug(kuint8* format, ...) {
 					continue;
 				case 'p':
 					t = (void*)va_arg(args, void*);
-					if(t != knull) {
+					if(t) {
 						write_number_kuint((kuint)t, HEX | UNSIGNED | ADDRESS);
 					} else {
 						write_string("(null)");
@@ -114,32 +123,32 @@ kfunction void kdebug(kuint8* format, ...) {
 	}
 	va_end(args);
 
+	kspinlock_unlock_irqrestore(&kdebug_spinlock, &flags);
+
 	return;
 }
 
-void write_character(kuint8 c) {
-	if(c == '\0') {
-		return;
-	}
-	kioport_out_kuint8(0xE9, c);
+void write_character(kuint c) {
+	kioport_out_kuint8(0xE9, c); /* Write out to the bochs debug port.  */
+
 	if(c == '\n') {
 		video_next = ((video_next / 160) * 160) + 160;
 	} else {
 		kmemory_linear_write_kuint8(video_memory + video_next, c);
 		video_next += 2;
 	}
-	if(video_next >= video_size) {
-		kuint i = 0;
-		kmemory_linear_read_kuint16_array((video_memory + 160), (kuint16*)(video_memory), 0, (80 * 24));
+
+	if(video_next >= (80 * 25 * 2)) {
 		video_next = (80 * 24 * 2);
-		for(i = video_next; i < video_size; i += 2) {
-			kmemory_linear_write_kuint16((video_memory + i), blank);
-		}
+
+		kmemory_virtual_copy((void*)(video_memory), (void*)(video_memory + 160), (80 * 24 * 2));
+		kmemory_virtual_copy((void*)(video_memory + video_next), (void*)blank_line, (80 * 2));
 	}
 }
 
 void write_string(kuint8* s) {
-	kuint8 c;
+	kuint c;
+
 	while((c = *(s++)) != '\0') {
 		write_character(c);
 	}
@@ -154,8 +163,8 @@ void write_number_kuint(kuint number, kuint flags) {
 }
 
 void write_number_kuint32(kuint32 number, kuint flags) {
-	kuint8 c;
-	kuint8 buffer[12];
+	kuint c;
+	kuint8 buffer[16];
 	kuint8* p = buffer;
 	kuint32 base = 10;
 
@@ -185,8 +194,8 @@ void write_number_kuint32(kuint32 number, kuint flags) {
 }
 
 void write_number_kuint64(kuint64 number, kuint flags) {
-	kuint8 c;
-	kuint8 buffer[40];
+	kuint c;
+	kuint8 buffer[32];
 	kuint8* p = buffer;
 	kuint64 base = 10ull;
 
@@ -203,7 +212,7 @@ void write_number_kuint64(kuint64 number, kuint flags) {
 		*(p++) = digits[number % base];
 	} while((number /= base) > 0ull);
 
-	if((flags & HEX) == HEX) {
+	if((flags & ADDRESS) == ADDRESS) {
 		*(p++) = 'x';
 		*(p++) = '0';
 	} else if((flags & MINUS) == MINUS) {

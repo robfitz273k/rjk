@@ -1,0 +1,260 @@
+/*
+ * Copyright (C) 2000, 2001 Robert Fitzsimons
+ *
+ * This file is subject to the terms and conditions of the GNU General
+ * Public License.  See the file "COPYING" in the main directory of
+ * this archive for more details.
+ */
+
+#ifndef _kinternal_h
+#define _kinternal_h
+
+#include "kinterface.h"
+
+struct multiboot_info {
+        kuint flags;
+        kuint mem_lower;
+        kuint mem_upper;
+        kuint boot_device;
+        kuint cmdline;
+        kuint mods_count;
+        kuint mods_addr;
+        kuint syms_0;
+        kuint syms_1;
+        kuint syms_2;
+        kuint syms_3;
+        kuint mmap_length;
+        kuint mmap_addr;
+};
+
+struct multiboot_mod {
+        kuint mod_start;
+        kuint mod_end;
+        kuint string;
+        kuint reserved;
+};
+
+struct processor_regs {
+        kuint esp;
+        kuint ebp;
+        kuint esi;
+        kuint edi;
+        kuint edx;
+        kuint ecx;
+        kuint ebx;
+        kuint eax;
+        kuint error;
+        kuint eip;
+        kuint cs;
+        kuint eflags;
+};
+
+#define max(a, b) (((kuint)(a) > (kuint)(b)) ? (kuint)(a) : (kuint)(b))
+#define min(a, b) (((kuint)(a) < (kuint)(b)) ? (kuint)(a) : (kuint)(b))
+
+void kdebug_init();
+void kirq_init();
+void ktime_init();
+void ktimer_init();
+void kmemory_init();
+void kthread_kill_current();
+
+extern struct kinterface _kinterface;
+
+/*
+ * Kernel Interface
+ */
+
+kfunction kuint kinterface_check_version(kuint interface_version, kuint kernel_version);
+kfunction kuint8** kinterface_kernel_info();
+
+/*
+ * Kernel Interface: Modules
+ */
+
+kfunction void* kmodule_get(void* value, kuint8** data, kuint* length);
+kfunction void kmodule_free();
+
+/*
+ * Kernel Interface: Atomic Operation's
+ */
+
+kfunction kuint katomic_get(volatile kuint* atomic);
+kfunction void katomic_set(volatile kuint* atomic, kuint value);
+
+kfunction void katomic_inc(volatile kuint* atomic);
+kfunction void katomic_dec(volatile kuint* atomic);
+kfunction void katomic_add(volatile kuint* atomic, kuint value);
+kfunction void katomic_sub(volatile kuint* atomic, kuint value);
+
+kfunction kuint katomic_dec_and_test(volatile kuint* atomic);
+
+kfunction kuint katomic_compare(volatile kuint* atomic, kuint compare);
+kfunction kuint katomic_compare_and_set_if_equal(volatile kuint* atomic, kuint compare, kuint value);
+
+kfunction kuint katomic_bit_get(volatile kuint* atomic, kuint bit);
+kfunction void katomic_bit_set(volatile kuint* atomic, kuint bit);
+kfunction void katomic_bit_reset(volatile kuint* atomic, kuint bit);
+
+kfunction kuint katomic_bit_test_and_set(volatile kuint* atomic, kuint bit);
+kfunction kuint katomic_bit_test_and_reset(volatile kuint* atomic, kuint bit);
+
+/*
+ * Kernel Interface: Debugging
+ */
+
+kfunction void kdebug(kuint8* format, ...);
+
+/*
+ * Kernel Interface: IRQ's
+ */
+
+kfunction kuint kirq_assign_irq(kuint irq, kuint (*handler)(kuint irq));
+kfunction void kirq_unassign_irq(kuint irq);
+kfunction void kirq_enable_irq(kuint irq);
+kfunction void kirq_disable_irq(kuint irq);
+kfunction void kirq_enable_all();
+kfunction void kirq_disable_all();
+
+/*
+ * Kernel Interface: Input Output Port's
+ */
+
+kfunction kuint kioport_in_kuint(kuint port);
+kfunction kuint8 kioport_in_kuint8(kuint port);
+kfunction kuint16 kioport_in_kuint16(kuint port);
+kfunction kuint32 kioport_in_kuint32(kuint port);
+kfunction kuint64 kioport_in_kuint64(kuint port);
+
+kfunction void kioport_out_kuint(kuint port, kuint value);
+kfunction void kioport_out_kuint8(kuint port, kuint8 value);
+kfunction void kioport_out_kuint16(kuint port, kuint16 value);
+kfunction void kioport_out_kuint32(kuint port, kuint32 value);
+kfunction void kioport_out_kuint64(kuint port, kuint64 value);
+
+kfunction kuint kioport_in_kuint_port(kuint port, kuint* array, kuint offset, kuint length);
+kfunction kuint kioport_in_kuint8_port(kuint port, kuint8* array, kuint offset, kuint length);
+kfunction kuint kioport_in_kuint16_port(kuint port, kuint16* array, kuint offset, kuint length);
+kfunction kuint kioport_in_kuint32_port(kuint port, kuint32* array, kuint offset, kuint length);
+kfunction kuint kioport_in_kuint64_port(kuint port, kuint64* array, kuint offset, kuint length);
+
+kfunction kuint kioport_out_kuint_port(kuint port, kuint* array, kuint offset, kuint length);
+kfunction kuint kioport_out_kuint8_port(kuint port, kuint8* array, kuint offset, kuint length);
+kfunction kuint kioport_out_kuint16_port(kuint port, kuint16* array, kuint offset, kuint length);
+kfunction kuint kioport_out_kuint32_port(kuint port, kuint32* array, kuint offset, kuint length);
+kfunction kuint kioport_out_kuint64_port(kuint port, kuint64* array, kuint offset, kuint length);
+
+/*
+ * Kernel Interface: Spinlock
+ */
+
+kfunction void kspinlock_lock(volatile kuint* lock);
+kfunction void kspinlock_unlock(volatile kuint* lock);
+kfunction void kspinlock_read_lock(volatile kuint* lock);
+kfunction void kspinlock_read_unlock(volatile kuint* lock);
+kfunction void kspinlock_write_lock(volatile kuint* lock);
+kfunction void kspinlock_write_unlock(volatile kuint* lock);
+kfunction void kspinlock_lock_irqsave(volatile kuint* lock, kuint* flags);
+kfunction void kspinlock_unlock_irqrestore(volatile kuint* lock, kuint* flags);
+
+/*
+ * Kernel Interface: Mutex
+ */
+
+kfunction void kmutex_init(kmutex* mutex);
+kfunction void kmutex_lock(kmutex* mutex);
+kfunction void kmutex_unlock(kmutex* mutex);
+
+/*
+ * Kernel Interface: Thread's
+ */
+
+kfunction kuint kthread_create(void (*function)(void* data), void* data, kint priorty);
+
+kfunction kuint kthread_current();
+
+kfunction void kthread_yield();
+
+kfunction void kthread_kill(kuint thread);
+kfunction void kthread_suspend(kuint thread);
+kfunction void kthread_resume(kuint thread);
+kfunction void kthread_sleep(kuint thread, kint64 second, kint32 nanosecond);
+
+kfunction void kthread_priority_set(kuint thread, kint priority);
+kfunction kint kthread_priority_get(kuint thread);
+kfunction void* kthread_key_set(kuint thread, void* value);
+kfunction void* kthread_key_get(kuint thread);
+
+/*
+ * Kernel Interface: Time
+ */
+
+kfunction void ktime_get(ktime* time);
+kfunction void ktime_set(ktime* time);
+
+/*
+ * Kernel Interface: Timer's
+ */
+
+kfunction kuint ktimer_add(void (*function)(void* data), void* data, kuint64 second, kuint32 nanosecond);
+kfunction void ktimer_remove(kuint timer);
+
+/*
+ * Kernel Interface: Liner Memory
+ */
+
+kfunction kuint kmemory_linear_page_allocate(kuint count, kuint dma);
+kfunction void kmemory_linear_page_unallocate(kuint address, kuint count);
+
+kfunction kuint kmemory_linear_page_map(kuint address, kuint count);
+kfunction void kmemory_linear_page_unmap(kuint address, kuint count);
+
+kfunction kuint kmemory_linear_read_kuint(kuint address);
+kfunction kuint8 kmemory_linear_read_kuint8(kuint address);
+kfunction kuint16 kmemory_linear_read_kuint16(kuint address);
+kfunction kuint32 kmemory_linear_read_kuint32(kuint address);
+kfunction kuint64 kmemory_linear_read_kuint64(kuint address);
+
+kfunction void kmemory_linear_write_kuint(kuint address, kuint value);
+kfunction void kmemory_linear_write_kuint8(kuint address, kuint8 value);
+kfunction void kmemory_linear_write_kuint16(kuint address, kuint16 value);
+kfunction void kmemory_linear_write_kuint32(kuint address, kuint32 value);
+kfunction void kmemory_linear_write_kuint64(kuint address, kuint64 value);
+
+kfunction kuint kmemory_linear_read_kuint_array(kuint address, kuint* array, kuint offset, kuint length);
+kfunction kuint kmemory_linear_read_kuint8_array(kuint address, kuint8* array, kuint offset, kuint length);
+kfunction kuint kmemory_linear_read_kuint16_array(kuint address, kuint16* array, kuint offset, kuint length);
+kfunction kuint kmemory_linear_read_kuint32_array(kuint address, kuint32* array, kuint offset, kuint length);
+kfunction kuint kmemory_linear_read_kuint64_array(kuint address, kuint64* array, kuint offset, kuint length);
+
+kfunction kuint kmemory_linear_write_kuint_array(kuint address, kuint* array, kuint offset, kuint length);
+kfunction kuint kmemory_linear_write_kuint8_array(kuint address, kuint8* array, kuint offset, kuint length);
+kfunction kuint kmemory_linear_write_kuint16_array(kuint address, kuint16* array, kuint offset, kuint length);
+kfunction kuint kmemory_linear_write_kuint32_array(kuint address, kuint32* array, kuint offset, kuint length);
+kfunction kuint kmemory_linear_write_kuint64_array(kuint address, kuint64* array, kuint offset, kuint length);
+
+/*
+ * Kernel Interface: Virtual Memory
+ */
+
+kfunction void* kmemory_virtual_page_allocate(kuint count, kuint zero);
+kfunction void kmemory_virtual_page_unallocate(void* pointer);
+
+kfunction void* kmemory_virtual_copy(void* destination, void* source, kuint size);
+kfunction void* kmemory_virtual_fill(void* pointer, kuint size, kuint8 value);
+
+/*
+ * Kernel Interface: Processor
+ */
+
+kfunction void kprocessor_save_flags(kuint* flags);
+kfunction void kprocessor_restore_flags(kuint* flags);
+
+kfunction void kprocessor_byteswap_kuint(kuint* value);
+kfunction void kprocessor_byteswap_kuint8(kuint8* value);
+kfunction void kprocessor_byteswap_kuint16(kuint16* value);
+kfunction void kprocessor_byteswap_kuint32(kuint32* value);
+kfunction void kprocessor_byteswap_kuint64(kuint64* value);
+
+#endif /* _kinternal_h */
+
