@@ -6,7 +6,7 @@
  * this archive for more details.
  */
 
-#include "kinternal.h"
+#include "internal.h"
 
 kfunction void kprocessor_save_flags(kuint* flags) {
 	asm volatile(

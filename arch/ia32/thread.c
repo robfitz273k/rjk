@@ -6,11 +6,11 @@
  * this archive for more details.
  */
 
-#include "kinternal.h"
+#include "internal.h"
 
 #define STATUS_ALIVE   0x00000001
 #define STATUS_SLEEP   0x00000002
-#define STATUS_SUSPEND 0x00000002
+#define STATUS_SUSPEND 0x00000004
 
 struct thread {
 	struct thread* next;
@@ -171,6 +171,15 @@ kfunction void kthread_suspend(kuint thread) {
 	local_thread->status |= STATUS_SUSPEND;
 
 	kspinlock_unlock_irqrestore(&kthread_spinlock, &irqsave);
+
+	if(local_thread == current_thread) {
+		asm volatile(
+			"int $0x30 ;"
+			:
+			:
+			: "memory"
+		);
+	}
 }
 
 kfunction void kthread_resume(kuint thread) {
@@ -182,6 +191,15 @@ kfunction void kthread_resume(kuint thread) {
 	local_thread->status &= ~STATUS_SUSPEND;
 
 	kspinlock_unlock_irqrestore(&kthread_spinlock, &irqsave);
+
+	if(local_thread == current_thread) {
+		asm volatile(
+			"int $0x30 ;"
+			:
+			:
+			: "memory"
+		);
+	}
 }
 
 kfunction void kthread_priority_set(kuint thread, kint priority) {

@@ -6,7 +6,7 @@
  * this archive for more details.
  */
 
-#include "kinternal.h"
+#include "internal.h"
 
 #define bcd_to_binary(v) ({ \
 	kuint8 __v = (v); \

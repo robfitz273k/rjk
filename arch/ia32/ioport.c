@@ -6,7 +6,7 @@
  * this archive for more details.
  */
 
-#include "kinternal.h"
+#include "internal.h"
 
 kfunction kuint kioport_in_kuint(kuint port) {
 	kuint value;

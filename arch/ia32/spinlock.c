@@ -6,7 +6,7 @@
  * this archive for more details.
  */
 
-#include "kinternal.h"
+#include "internal.h"
 
 kfunction void kspinlock_lock(volatile kuint* lock) {
 	while(!katomic_bit_test_and_set(lock, 0)) {}

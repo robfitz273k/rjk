@@ -59,7 +59,7 @@ kfunction kuint8** (*kinterface_kernel_info)();
  * Kernel Interface: Modules
  */
 
-kfunction void* (*kmodule_get)(void* value, kuint8** data, kuint* length);
+kfunction kuint (*kmodule_get)(kuint mod_index, kuint8** data, kuint* length);
 kfunction void (*kmodule_free)();
 
 /*
@@ -87,10 +87,12 @@ kfunction kuint (*katomic_bit_test_and_set)(volatile kuint* atomic, kuint bit);
 kfunction kuint (*katomic_bit_test_and_reset)(volatile kuint* atomic, kuint bit);
 
 /*
- * Kernel Interface: Debugging
+ * Kernel Interface: Printing
  */
 
-kfunction void (*kdebug)(kuint8* format, ...);
+kfunction kint (*kprintf)(kuint8* format, ...);
+kfunction kint (*kvprintf)(kuint8* format, va_list args);
+kfunction kint (*kvsprintf)(kuint8* buffer, kuint8* format, va_list args);
 
 /*
  * Kernel Interface: IRQ's
@@ -143,14 +145,6 @@ kfunction void (*kspinlock_write_lock)(volatile kuint* lock);
 kfunction void (*kspinlock_write_unlock)(volatile kuint* lock);
 kfunction void (*kspinlock_lock_irqsave)(volatile kuint* lock, kuint* flags);
 kfunction void (*kspinlock_unlock_irqrestore)(volatile kuint* lock, kuint* flags);
-
-/*
- * Kernel Interface: Mutex
- */
-
-kfunction void (*kmutex_init)(kmutex* mutex);
-kfunction void (*kmutex_lock)(kmutex* mutex);
-kfunction void (*kmutex_unlock)(kmutex* mutex);
 
 /*
  * Kernel Interface: Thread's
@@ -242,6 +236,27 @@ kfunction void (*kprocessor_byteswap_kuint8)(kuint8* value);
 kfunction void (*kprocessor_byteswap_kuint16)(kuint16* value);
 kfunction void (*kprocessor_byteswap_kuint32)(kuint32* value);
 kfunction void (*kprocessor_byteswap_kuint64)(kuint64* value);
+
+/*
+ * Kernel Interface: Mutex's
+ */
+ 
+kfunction kmutex* (*kmutex_create)();
+kfunction void (*kmutex_destroy)(kmutex* mutex);
+kfunction kuint (*kmutex_lock)(kmutex* mutex);
+kfunction kuint (*kmutex_unlock)(kmutex* mutex);
+kfunction kuint (*kmutex_test)(kmutex* mutex);
+
+/*
+ * Kernel Interface: Conditional Variables
+ */
+ 
+kfunction kcondition* (*kcondition_create)();
+kfunction void (*kcondition_destroy)(kcondition* condition);
+kfunction kuint (*kcondition_signal)(kcondition* condition);
+kfunction kuint (*kcondition_broadcast)(kcondition* condition);
+kfunction kuint (*kcondition_wait)(kcondition* condition, kmutex* mutex);
+kfunction kuint (*kcondition_timedwait)(kcondition* condition, kmutex* mutex, kuint64 second, kuint32 nanosecond);
 
 };
 

@@ -38,10 +38,8 @@ typedef struct ktime {
 	kuint32 nanosecond;
 } ktime;
 
-typedef struct kmutex {
-	volatile kuint thread;
-	kuint count;
-} kmutex;
+typedef struct kmutex kmutex;
+typedef struct kcondition kcondition;
 
 #endif /* _kimplementation_h */
 

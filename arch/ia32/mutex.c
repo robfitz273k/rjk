@@ -6,30 +6,47 @@
  * this archive for more details.
  */
 
-#include "kinternal.h"
+#include "internal.h"
 
-kfunction void kmutex_init(kmutex* mutex) {
-	mutex->thread = 0;
-	mutex->count = 0;
+kfunction kmutex* kmutex_create() {
+	return (kmutex*)kmemory_virtual_page_allocate(1, 0);
 }
 
-kfunction void kmutex_lock(kmutex* mutex) {
+kfunction void kmutex_destroy(kmutex* mutex) {
+	kmemory_virtual_page_unallocate(mutex);
+}
+
+kfunction kuint kmutex_lock(kmutex* mutex) {
+	kuint current = kthread_current();
+
 	while(1) {
 		if(
-			katomic_compare_and_set_if_equal(&mutex->thread, 0, kthread_current()) ||
-			katomic_compare(&mutex->thread, kthread_current())
+			katomic_compare_and_set_if_equal(&mutex->thread, 0, current) ||
+			katomic_compare(&mutex->thread, current)
 		) {
-			(mutex->count)++;
+			mutex->count++;
 			break;
 		} else {
 			kthread_yield();
 		}
 	}
+
+	return 0;
 }
 
-kfunction void kmutex_unlock(kmutex* mutex) {
-	if(!(--(mutex->count))) {
+kfunction kuint kmutex_unlock(kmutex* mutex) {
+	if(!kmutex_test(mutex)) {
+		return -1;
+	}
+
+	if(!(--mutex->count)) {
 		katomic_set(&mutex->thread, 0);
 	}
+
+	return 0;
+}
+
+kfunction kuint kmutex_test(kmutex* mutex) {
+	return katomic_compare(&mutex->thread, kthread_current());
 }
 

@@ -6,7 +6,7 @@
  * this archive for more details.
  */
 
-#include "kinternal.h"
+#include "internal.h"
 #include "kinterface.h"
 
 kuint8* kernel_info[] = {
@@ -57,10 +57,12 @@ struct kinterface _kinterface __attribute__ ((aligned(KPAGESIZE))) = {
 	katomic_bit_test_and_reset,
 
 	/*
-	 * Kernel Interface: Debugging
+	 * Kernel Interface: Printing
 	 */
 
-	kdebug,
+	kprintf,
+	kvprintf,
+	kvsprintf,
 
 	/*
 	 * Kernel Interface: IRQ's
@@ -113,14 +115,6 @@ struct kinterface _kinterface __attribute__ ((aligned(KPAGESIZE))) = {
 	kspinlock_write_unlock,
 	kspinlock_lock_irqsave,
 	kspinlock_unlock_irqrestore,
-
-	/*
-	 * Kernel Interface: Mutex
-	 */
-
-	kmutex_init,
-	kmutex_lock,
-	kmutex_unlock,
 
 	/*
 	 * Kernel Interface: Thread's
@@ -212,6 +206,27 @@ struct kinterface _kinterface __attribute__ ((aligned(KPAGESIZE))) = {
 	kprocessor_byteswap_kuint16,
 	kprocessor_byteswap_kuint32,
 	kprocessor_byteswap_kuint64,
+
+	/*
+	 * Kernel Interface: Mutex's
+	 */
+
+	kmutex_create,
+	kmutex_destroy,
+	kmutex_lock,
+	kmutex_unlock,
+	kmutex_test,
+
+	/*
+	 * Kernel Interface: Conditional Variables
+	 */
+
+	kcondition_create,
+	kcondition_destroy,
+	kcondition_signal,
+	kcondition_broadcast,
+	kcondition_wait,
+	kcondition_timedwait,
 
 };
 

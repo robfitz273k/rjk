@@ -6,24 +6,24 @@
  * this archive for more details.
  */
 
-#include "kinternal.h"
+#include "internal.h"
 
 extern struct multiboot_info* mb_info;
 
-kfunction void* kmodule_get(void* value, kuint8** data, kuint* length) {
-	kuint* index = value;
+kfunction kuint kmodule_get(kuint value, kuint8** data, kuint* length) {
+	kuint index = value;
 	struct multiboot_mod* mods_array = (void*)mb_info->mods_addr;
 
-	if(*index < mb_info->mods_count) {
-		struct multiboot_mod* mod = (void*)&mods_array[*index];
+	if(index < mb_info->mods_count) {
+		struct multiboot_mod* mod = (void*)&mods_array[index];
 
 		*data = (kuint8*)mod->mod_start;
 		*length = ((kuint)mod->mod_end - (kuint)mod->mod_start);
 
-		return (void*)((*index)++);
+		return ++index;
 	}
 
-	return KNULL;
+	return 0;
 }
 
 kfunction void kmodule_free() {

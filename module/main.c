@@ -24,9 +24,11 @@ kuint _start(struct kinterface* _kinterface) {
 		kuint i;
 
 		for(i = 0; info[i]; i++) {
-			kinterface->kdebug("%s\n", info[i]);
+			kinterface->kprintf("%s\n", info[i]);
 		}
 	}
+
+	kinterface->kprintf("<clinit>\n");
 
 	return 0;
 }

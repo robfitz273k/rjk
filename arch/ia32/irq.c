@@ -6,7 +6,7 @@
  * this archive for more details.
  */
 
-#include "kinternal.h"
+#include "internal.h"
 
 struct interrupt_handler {
 	kuint (*handler)(kuint number);
@@ -64,11 +64,11 @@ void handle_exception(kuint number, struct processor_regs* regs) {
 		: "0" (cr0), "1" (cr1), "2" (cr2), "3" (cr3), "4" (cr4)
 	);
 
-	kdebug("Exception=%x\n", number);
-	kdebug("eflags=%x cs=%x eip=%x error=%x\n", regs->eflags, regs->cs, regs->eip, regs->error);
-	kdebug("eax=%x ebx=%x ecx=%x edx=%x\n", regs->eax, regs->ebx, regs->ecx, regs->edx);
-	kdebug("edi=%x esi=%x ebp=%x esp=%x\n", regs->edi, regs->esi, regs->ebp, regs->esp);
-	kdebug("cr0=%x cr1=%x cr2=%x cr3=%x cr4=%x\n", cr0, cr1, cr2, cr3, cr4);
+	kprintf("Exception=%x\n", number);
+	kprintf("eflags=%x cs=%x eip=%x error=%x\n", regs->eflags, regs->cs, regs->eip, regs->error);
+	kprintf("eax=%x ebx=%x ecx=%x edx=%x\n", regs->eax, regs->ebx, regs->ecx, regs->edx);
+	kprintf("edi=%x esi=%x ebp=%x esp=%x\n", regs->edi, regs->esi, regs->ebp, regs->esp);
+	kprintf("cr0=%x cr1=%x cr2=%x cr3=%x cr4=%x\n", cr0, cr1, cr2, cr3, cr4);
 
 	kthread_kill_current();
 }
@@ -93,7 +93,7 @@ void handle_irq(kuint number, struct processor_regs* regs) {
 	if(interrupt_handler[number].handler) {
 		rc = interrupt_handler[number].handler(irq);
 	} else {
-		kdebug("IRQ %x\n", irq);
+		kprintf("IRQ %x\n", irq);
 		handle_exception(number, regs);
 	}
 

@@ -9,7 +9,7 @@
 #ifndef _elf32_h
 #define _elf32_h
 
-#include "kinternal.h"
+#include "internal.h"
 
 #define EI_MAG0 0
 #define EI_MAG1 1

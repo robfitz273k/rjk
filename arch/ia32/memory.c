@@ -6,7 +6,7 @@
  * this archive for more details.
  */
 
-#include "kinternal.h"
+#include "internal.h"
 
 #define VIRTUAL_ALLOCATED 0x00000001
 #define VIRTUAL_READWRITE 0x00000002
@@ -327,7 +327,7 @@ kfunction void kmemory_virtual_page_unallocate(void* pointer) {
 		current = (*prev);
 	}
 
-	kdebug("unallocate not found %p\n", pointer);
+	kprintf("unallocate not found %p\n", pointer);
 
 	goto end;
 
@@ -536,6 +536,7 @@ kuint get_free_pages(kuint count, kuint zone) {
 	for(i0 = zone; i0 < ZONE_COUNT; i0++) {
 		struct zone* zone = &zones[i0];
 		kuint c = 0;
+		kuint address = 0;
 
 		if(!zone->next) {
 			continue;
@@ -554,19 +555,20 @@ kuint get_free_pages(kuint count, kuint zone) {
 
 				while(i2 < 1024) {
 					if(lpt[i2] & (LINEAR_AVAILABLE)) {
-						kuint address = 0;
-
 						if(!(c++)) {
 							address = ((i1 << 22) | (i2 << 12));
 						}
 
 						if(c == count) {
+							// FIXME 2001-03-23:  Need to mark all the pages as LINEAR_ALLOCATED.
 							lpt[i2] = (LINEAR_ALLOCATED);
 							zone->next = (address + (count * KPAGESIZE));
 							return address;
 						}
 					} else {
 						c = 0;
+						address = 0;
+
 					}
 
 					i2++;
@@ -586,6 +588,8 @@ kuint get_free_pages(kuint count, kuint zone) {
 			goto outer_loop;
 		}
 	}
+
+	kprintf("get_free_pages failed, %d %d", count, zone);
 
 	return 0;
 }
@@ -621,41 +625,41 @@ void print_page_table() {
 	kuint i1;
 
 /*
-	kdebug("Zones\n");
+	kprintf("Zones\n");
 	for(i1 = 0; i1 < ZONE_COUNT; i1++) {
-		kdebug("%x %x %x\n", zones[i1].next, zones[i1].start, zones[i1].end);
+		kprintf("%x %x %x\n", zones[i1].next, zones[i1].start, zones[i1].end);
 	}
 */
 /*
-	kdebug("Linear Page Tables\n");
+	kprintf("Linear Page Tables\n");
 	ptd = linear_page_table_directory;
 	for(i1 = 0; i1 < 1024; i1++) {
 		if(ptd[i1] & (LINEAR_ALLOCATED)) {
 			kuint* pt = (kuint*)(ptd[i1] & 0xFFFFF000);
 			kuint i2;
 
-			kdebug("%x %x %x %x\n", i1, (i1 << 22), ptd[i1], &ptd[i1]);
+			kprintf("%x %x %x %x\n", i1, (i1 << 22), ptd[i1], &ptd[i1]);
 
 			for(i2 = 0; i2 < 1024; i2++) {
 				if(pt[i2] & (LINEAR_ALLOCATED)) {
-					kdebug(" %x %x %x %x %x\n", i1, i2, ((i1 << 22) | (i2 << 12)), pt[i2], &pt[i2]);
+					kprintf(" %x %x %x %x %x\n", i1, i2, ((i1 << 22) | (i2 << 12)), pt[i2], &pt[i2]);
 				}
 			}
 		}
 	}
 */
-	kdebug("Virtual Page Tables\n");
+	kprintf("Virtual Page Tables\n");
 	ptd = virtual_page_table_directory;
 	for(i1 = 0; i1 < 1024; i1++) {
 		if(ptd[i1] & (VIRTUAL_ALLOCATED)) {
 			kuint* pt = (kuint*)(ptd[i1] & 0xFFFFF000);
 			kuint i2;
 
-			kdebug("%x %x %x %x\n", i1, (i1 << 22), ptd[i1], &ptd[i1]);
+			kprintf("%x %x %x %x\n", i1, (i1 << 22), ptd[i1], &ptd[i1]);
 
 			for(i2 = 0; i2 < 1024; i2++) {
 				if(pt[i2] & (VIRTUAL_ALLOCATED | VIRTUAL_ASSIGNED)) {
-					kdebug(" %x %x %x %x %x\n", i1, i2, ((i1 << 22) | (i2 << 12)), pt[i2], &pt[i2]);
+					kprintf(" %x %x %x %x %x\n", i1, i2, ((i1 << 22) | (i2 << 12)), pt[i2], &pt[i2]);
 				}
 			}
 		}
@@ -689,7 +693,7 @@ kuint read_elf(kuint8* buffer, kuint* entry) {
 
 	elf_h = (void*)buffer;
 
-	if(debug_elf) kdebug("elf %x\n", elf_h);
+	if(debug_elf) kprintf("elf %x\n", elf_h);
 
 	if(
 		(elf_h->e_ident[EI_MAG0] == 0x7F)
@@ -707,8 +711,8 @@ kuint read_elf(kuint8* buffer, kuint* entry) {
 	) {
 		kuint i;
 
-		if(debug_elf) kdebug("elf %x\n", elf_h->e_entry);
-		if(debug_elf) kdebug("elf %x\n", elf_h->e_phnum);
+		if(debug_elf) kprintf("elf %x\n", elf_h->e_entry);
+		if(debug_elf) kprintf("elf %x\n", elf_h->e_phnum);
 
 		for(i = 0; i < elf_h->e_phnum; i++) {
 			struct elf32_program_header* elf_ph;
@@ -721,7 +725,7 @@ kuint read_elf(kuint8* buffer, kuint* entry) {
 				kuint count = ((end - start) / KPAGESIZE);
 				kuint address = get_free_pages(count, ZONE_NORMAL);
 
-				if(debug_elf) kdebug("elf %x %x %x %x\n", start, end, count, address);
+				if(debug_elf) kprintf("elf %x %x %x %x\n", start, end, count, address);
 
 				if(address) {
 					kuint laddr = address;
@@ -737,12 +741,12 @@ kuint read_elf(kuint8* buffer, kuint* entry) {
 					}
 				}
 
-				if(debug_elf) kdebug("elf %d:\n", i);
-				if(debug_elf) kdebug("elf  %x\n", elf_ph->p_type);
-				if(debug_elf) kdebug("elf  %x\n", elf_ph->p_offset);
-				if(debug_elf) kdebug("elf  %x\n", elf_ph->p_vaddr);
-				if(debug_elf) kdebug("elf  %x\n", elf_ph->p_filesz);
-				if(debug_elf) kdebug("elf  %x\n", elf_ph->p_memsz);
+				if(debug_elf) kprintf("elf %d:\n", i);
+				if(debug_elf) kprintf("elf  %x\n", elf_ph->p_type);
+				if(debug_elf) kprintf("elf  %x\n", elf_ph->p_offset);
+				if(debug_elf) kprintf("elf  %x\n", elf_ph->p_vaddr);
+				if(debug_elf) kprintf("elf  %x\n", elf_ph->p_filesz);
+				if(debug_elf) kprintf("elf  %x\n", elf_ph->p_memsz);
 			}
 		}
 
@@ -757,8 +761,8 @@ kuint read_elf(kuint8* buffer, kuint* entry) {
 					(void*)((kuint)buffer + elf_ph->p_offset),
 					elf_ph->p_filesz
 				);
-				if(debug_elf) kdebug("elf %x %x\n", (void*)((kuint)buffer + elf_ph->p_offset), *(kuint*)((kuint)buffer + elf_ph->p_offset));
-				if(debug_elf) kdebug("elf %x %x\n", elf_ph->p_vaddr, *(kuint*)elf_ph->p_vaddr);
+				if(debug_elf) kprintf("elf %x %x\n", (void*)((kuint)buffer + elf_ph->p_offset), *(kuint*)((kuint)buffer + elf_ph->p_offset));
+				if(debug_elf) kprintf("elf %x %x\n", elf_ph->p_vaddr, *(kuint*)elf_ph->p_vaddr);
 			}
 		}
 
@@ -772,6 +776,7 @@ kuint read_elf(kuint8* buffer, kuint* entry) {
 
 void handle_page_fault(kuint number, struct processor_regs* regs) {
 	kuint cr2 = 0;
+	kuint* ebp;
 	kuint* page_table;
 	kuint irqsave;
 
@@ -808,10 +813,17 @@ void handle_page_fault(kuint number, struct processor_regs* regs) {
 
 	kspinlock_unlock_irqrestore(&kmemory_spinlock, &irqsave);
 
-	kdebug("Page Fault\n");
-	kdebug("cr2: %x\n", cr2);
-	kdebug("eip: %x\n", regs->eip);
-	kdebug("error: %x\n", regs->error);
+	kprintf(
+		"Page Fault\ncr2: %x\neip: %x\nerror: %x\n",
+		cr2,
+		regs->eip,
+		regs->error
+	);
+
+	kprintf("Stack trace (almost)\n");
+	for(ebp = (kuint*)regs->ebp; ebp; ebp = (kuint*)ebp[0]) {
+		kprintf("%x\n", ebp[1]);
+	}
 
 	kthread_kill_current();
 }

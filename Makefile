@@ -9,16 +9,17 @@
 kernel.elf : ELF_LINKER_FLAGS=-Wl,-Ttext,0x00100000
 kernel.elf : \
 	arch/ia32/start.o \
+	arch/ia32/condition.o \
 	arch/ia32/entry.o \
 	arch/ia32/init.o \
 	arch/ia32/atomic.o \
-	arch/ia32/debug.o \
 	arch/ia32/internal.o \
 	arch/ia32/ioport.o \
 	arch/ia32/irq.o \
 	arch/ia32/memory.o \
 	arch/ia32/module.o \
 	arch/ia32/mutex.o \
+	arch/ia32/printf.o \
 	arch/ia32/processor.o \
 	arch/ia32/spinlock.o \
 	arch/ia32/thread.o \
