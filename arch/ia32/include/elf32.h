@@ -6,8 +6,8 @@
  * this archive for more details.
  */
 
-#ifndef _elf32_h
-#define _elf32_h
+#ifndef _rjk_elf32_h
+#define _rjk_elf32_h
 
 #include "internal.h"
 
@@ -59,5 +59,5 @@ struct elf32_program_header {
 
 kuint read_elf(kuint8* buffer, kuint* entry);
 
-#endif /* _elf32_h */
+#endif /* _rjk_elf32_h */
 

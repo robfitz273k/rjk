@@ -10,9 +10,9 @@
 #include "elf32.h"
 
 extern void kmemory_linear_setup(kuint mem_lower, kuint mem_upper, kuint mb_max);
-extern void kmemory_virtual_setup();
+extern void kmemory_virtual_setup(void);
 extern void linear_block(kuint start, kuint end);
-extern kuint kthread_setup();
+extern kuint kthread_setup(void);
 void idle(void* data);
 void start_module(void* data);
 
@@ -74,7 +74,7 @@ kuint setup(struct multiboot_info* mb_info_local) {
 	return kthread_setup();
 }
 
-void init() {
+void init(void) {
 	kprintf_init();
 	kirq_init();
 	ktime_init();

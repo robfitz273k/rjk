@@ -21,6 +21,7 @@ kernel.elf : \
 	arch/ia32/mutex.o \
 	arch/ia32/printf.o \
 	arch/ia32/processor.o \
+	arch/ia32/rwlock.o \
 	arch/ia32/spinlock.o \
 	arch/ia32/thread.o \
 	arch/ia32/time.o \
@@ -41,7 +42,7 @@ install : all
 	umount /mnt/fd0
 
 CC = gcc
-CFLAGS = -O0 -g -Wall
+CFLAGS = -O0 -g -Wall -Wstrict-prototypes
 CINC = -I include -I arch/ia32/include
 
 .SUFFIXES :

@@ -8,7 +8,7 @@
 
 #include "internal.h"
 
-kfunction kmutex* kmutex_create() {
+kfunction kmutex* kmutex_create(void) {
 	return (kmutex*)kmemory_virtual_page_allocate(1, 0);
 }
 

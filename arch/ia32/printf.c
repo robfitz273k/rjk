@@ -8,16 +8,22 @@
 
 #include "internal.h"
 
-#define UNSIGNED   0x00000001
-#define HEX        0x00000010
-#define OCTAL      0x00000020
-#define SIZE_LONG  0x00000100
-#define SIZE_SHORT 0x00000200
-#define MINUS      0x00001000
-#define ADDRESS    0x00002000
+#define PAD_MASK     0x000000FF
+#define PAD_ZERO     0x00000100
+#define PAD_SPACE    0x00000200
+#define UNSIGNED     0x00001000
+#define HEX          0x00010000
+#define OCTAL        0x00020000
+#define SIZE_KUINT16 0x00100000
+#define SIZE_KUINT32 0x00200000
+#define SIZE_KUINT64 0x00400000
+#define MINUS        0x01000000
+#define ADDRESS      0x02000000
+#define UPPER        0x04000000
 
-const kuint8* digits = "0123456789ABCDEF";
-const kuint8* blank_line = " \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07";
+const kuint8 lower_digits[] = "0123456789abcdef";
+const kuint8 upper_digits[] = "0123456789ABCDEF";
+const kuint8 blank_line[] = " \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07 \x07";
 kuint video_memory;
 kuint video_next;
 kuint8* kprintf_buffer;
@@ -31,7 +37,7 @@ void write_number_kfloat(kfloat number, kuint flags, kuint8** buffer);
 void write_number_kfloat32(kfloat32 number, kuint flags, kuint8** buffer);
 void write_number_kfloat64(kfloat64 number, kuint flags, kuint8** buffer);
 
-kfunction void kprintf_init() {
+kfunction void kprintf_init(void) {
 	kuint i;
 
 	video_memory = 0x000B8000;
@@ -57,12 +63,12 @@ kfunction kint kprintf(kuint8* format, ...) {
 }
 
 kfunction kint kvprintf(kuint8* format, va_list args) {
-	kuint irqflags;
 	kuint c;
 	kuint count;
+	kuint irqsave;
 	kuint8* buffer;
 
-	kspinlock_lock_irqsave(&kprintf_spinlock, &irqflags);
+	kspinlock_lock_irqsave(&kprintf_spinlock, &irqsave);
 
 	buffer = kprintf_buffer;
 
@@ -86,7 +92,7 @@ kfunction kint kvprintf(kuint8* format, va_list args) {
 		}
 	}
 
-	kspinlock_unlock_irqrestore(&kprintf_spinlock, &irqflags);
+	kspinlock_unlock_irqrestore(&kprintf_spinlock, &irqsave);
 
 	return count;
 }
@@ -105,13 +111,47 @@ kfunction kint kvsprintf(kuint8* buffer, kuint8* format, va_list args) {
 
 			switch(c) {
 				case 'h':
-					flags |= SIZE_SHORT;
+					flags |= SIZE_KUINT16;
 					c = *(format++); 
 					break;
 				case 'l':
-					flags |= SIZE_LONG;
+					if(*(format + 1) == 'l') {
+						flags |= SIZE_KUINT64;
+						format++;
+					} else { 
+						flags |= SIZE_KUINT32;
+					}
 					c = *(format++); 
 					break;
+			}
+			switch(c) {
+				case '0':
+					flags |= PAD_ZERO;
+					c = *(format++); 
+					break;
+				case ' ':
+					flags |= PAD_SPACE;
+					c = *(format++); 
+					break;
+			}
+			switch(c) {
+				case '1':
+				case '2':
+				case '3':
+				case '4':
+				case '5':
+				case '6':
+				case '7':
+				case '8':
+				case '9':
+					while(1) {
+						if((c >= '0') && (c <= '9')) {
+							flags += (c - '0');
+						} else {
+							break;
+						}
+						c = *(format++); 
+					}
 			}
 			switch(c) {
 				case '%':
@@ -138,6 +178,7 @@ kfunction kint kvsprintf(kuint8* buffer, kuint8* format, va_list args) {
 					}
 					continue;
 				case 'X':
+					flags |= UPPER;
 				case 'x':
 					flags |= HEX;
 				case 'o':
@@ -148,9 +189,9 @@ kfunction kint kvsprintf(kuint8* buffer, kuint8* format, va_list args) {
 					flags |= UNSIGNED;
 				case 'd':
 				case 'i':
-					if(flags & SIZE_LONG) {
+					if(flags & SIZE_KUINT64) {
 						write_number_kuint64((kuint64)va_arg(args, kuint64), flags, &local_buffer);
-					} else if(flags & SIZE_SHORT) {
+					} else if(flags & SIZE_KUINT16) {
 						write_number_kuint32((kuint16)va_arg(args, kuint16), flags, &local_buffer);
 					} else {
 						write_number_kuint32((kuint32)va_arg(args, kuint32), flags, &local_buffer);
@@ -159,9 +200,9 @@ kfunction kint kvsprintf(kuint8* buffer, kuint8* format, va_list args) {
 				case 'e':
 				case 'f':
 				case 'G':
-					if(flags & SIZE_LONG) {
+					if(flags & SIZE_KUINT64) {
 						write_number_kfloat64((kfloat64)va_arg(args, kfloat64), flags, &local_buffer);
-					} else if(flags & SIZE_SHORT) {
+					} else if(flags & SIZE_KUINT16) {
 						write_number_kfloat32((kfloat32)va_arg(args, kfloat32), flags, &local_buffer);
 					} else {
 						write_number_kfloat((kfloat)va_arg(args, kfloat), flags, &local_buffer);
@@ -196,8 +237,10 @@ void write_number_kuint32(kuint32 number, kuint flags, kuint8** buffer) {
 	kuint8 array[16];
 	kuint8* p = array;
 	kuint32 base = 10;
+	kint32 size = (flags & PAD_MASK);
+	const kuint8* digits = (flags & UPPER) ? (upper_digits) : (lower_digits);
 
-	if(flags & SIZE_SHORT) {
+	if(flags & SIZE_KUINT16) {
 		number = (kuint32)((kint32)((kint16)number));
 	}
 
@@ -213,8 +256,17 @@ void write_number_kuint32(kuint32 number, kuint flags, kuint8** buffer) {
 	*(p++) = '\0';
 
 	do {
+		size--;
 		*(p++) = digits[number % base];
 	} while((number /= base) > 0);
+
+	while(size-- > 0) {
+		if(flags & PAD_ZERO) {
+			*(p++) = '0';
+		} else if(flags & PAD_SPACE) {
+			*(p++) = ' ';
+		}
+	}
 
 	if(flags & ADDRESS) {
 		*(p++) = 'x';
@@ -233,6 +285,7 @@ void write_number_kuint64(kuint64 number, kuint flags, kuint8** buffer) {
 	kuint8 array[32];
 	kuint8* p = array;
 	kuint64 base = 10ull;
+	const kuint8* digits = (flags & UPPER) ? (upper_digits) : (lower_digits);
 
 	if(flags & HEX) {
 		base = 16ull;

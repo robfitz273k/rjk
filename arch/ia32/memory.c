@@ -68,8 +68,8 @@ void set_linear_entry(kuint vaddr, kuint laddr, kuint flags);
 void clear_pages(kuint address, kuint count);
 void copy_pages(kuint destination, kuint source, kuint count);
 void linear_block(kuint start, kuint end);
-void print_page_table();
-extern void cleanup_thread();
+void print_page_table(void);
+extern void cleanup_thread(void);
 
 void kmemory_linear_setup(kuint mem_lower, kuint mem_upper, kuint mb_max) {
 	kuint linear_address = (((mb_max - 1) & 0xFFFFF000) + KPAGESIZE);
@@ -118,8 +118,8 @@ void kmemory_linear_setup(kuint mem_lower, kuint mem_upper, kuint mb_max) {
 	zones[ZONE_DMA].next = (((linear_address > 0x00100000) && (linear_address < 0x01000000)) ? (linear_address) : (0x00100000));
 	zones[ZONE_DMA].start = 0x00100000;
 	zones[ZONE_DMA].end = min(0x01000000, mem_upper);
-	zones[ZONE_KERNEL].next = 0x00000000;
-	zones[ZONE_KERNEL].start = 0x00000000;
+	zones[ZONE_KERNEL].next = 0x00001000;
+	zones[ZONE_KERNEL].start = 0x00001000;
 	zones[ZONE_KERNEL].end = 0x00100000;
 
 	virtual_page_table_directory = (kuint*)get_free_pages(1, ZONE_DMA);
@@ -134,11 +134,9 @@ void kmemory_linear_setup(kuint mem_lower, kuint mem_upper, kuint mb_max) {
 	virtual_address = 0x10000000;
 }
 
-void kmemory_virtual_setup() {
+void kmemory_virtual_setup(void) {
 	kuint i1;
 	kuint i2;
-
-	set_virtual_entry(0, 0, (VIRTUAL_ALLOCATED | VIRTUAL_LINEAR)); /* Null page.  */
 
 	for(i1 = 0; i1 < 1024; i1++) {
 		kuint* pt = (kuint*)linear_page_table_directory[i1];
@@ -165,9 +163,8 @@ kfunction kuint kmemory_linear_page_allocate(kuint count, kuint dma) {
 	kuint address;
 	kuint local;
 	kuint i;
-	kuint irqsave;
 
-	kspinlock_lock_irqsave(&kmemory_spinlock, &irqsave);
+	kspinlock_lock(&kmemory_spinlock);
 
 	local = address = get_free_pages(count, ((dma) ? (ZONE_DMA) : (ZONE_NORMAL)));
 
@@ -179,7 +176,7 @@ kfunction kuint kmemory_linear_page_allocate(kuint count, kuint dma) {
 		}
 	}
 
-	kspinlock_unlock_irqrestore(&kmemory_spinlock, &irqsave);
+	kspinlock_unlock(&kmemory_spinlock);
 
 	return address;
 }
@@ -191,9 +188,8 @@ kfunction void kmemory_linear_page_unallocate(kuint address, kuint count) {
 kfunction kuint kmemory_linear_page_map(kuint address, kuint count) {
 	kuint local = address;
 	kuint i;
-	kuint irqsave;
 
-	kspinlock_lock_irqsave(&kmemory_spinlock, &irqsave);
+	kspinlock_lock(&kmemory_spinlock);
 
 	for(i = 0; i < count; i++) {
 		set_virtual_entry(local, local, (VIRTUAL_ALLOCATED | VIRTUAL_READWRITE | VIRTUAL_LINEAR));
@@ -201,7 +197,7 @@ kfunction kuint kmemory_linear_page_map(kuint address, kuint count) {
 		local += KPAGESIZE;
 	}
 
-	kspinlock_unlock_irqrestore(&kmemory_spinlock, &irqsave);
+	kspinlock_unlock(&kmemory_spinlock);
 
 	return address;
 }
@@ -213,9 +209,8 @@ kfunction void kmemory_linear_page_unmap(kuint address, kuint count) {
 kfunction void* kmemory_virtual_page_allocate(kuint count, kuint zero) {
 	struct vm_page** prev;
 	struct vm_page* current;
-	kuint irqsave;
 
-	kspinlock_lock_irqsave(&kmemory_spinlock, &irqsave);
+	kspinlock_lock(&kmemory_spinlock);
 
 	prev = &virtual_block->free;
 	current = (*prev);
@@ -295,13 +290,13 @@ done:
 	current->next = virtual_block->used;
 	virtual_block->used = current;
 
-	kspinlock_unlock_irqrestore(&kmemory_spinlock, &irqsave);
+	kspinlock_unlock(&kmemory_spinlock);
 
 	return (void*)current->page;
 
 end:
 
-	kspinlock_unlock_irqrestore(&kmemory_spinlock, &irqsave);
+	kspinlock_unlock(&kmemory_spinlock);
 
 	return KNULL;
 }
@@ -309,9 +304,8 @@ end:
 kfunction void kmemory_virtual_page_unallocate(void* pointer) {
 	struct vm_page** prev;
 	struct vm_page* current;
-	kuint irqsave;
 
-	kspinlock_lock_irqsave(&kmemory_spinlock, &irqsave);
+	kspinlock_lock(&kmemory_spinlock);
 
 	prev = &virtual_block->used;
 	current = (*prev);
@@ -369,7 +363,7 @@ done:
 
 end:
 
-	kspinlock_unlock_irqrestore(&kmemory_spinlock, &irqsave);
+	kspinlock_unlock(&kmemory_spinlock);
 
 	return;
 }
@@ -414,50 +408,39 @@ kfunction void kmemory_linear_write_kuint64(kuint address, kuint64 value) {
 		"#opcode ;" \
 		: "=&c" (d0), "=&D" (d1), "=&S" (d2) \
 		: "0" (c), "1" (d), "2" (s) \
-		: "memory" \
 	); \
 })
 
-kfunction kuint kmemory_linear_read_kuint_array(kuint address, kuint* array, kuint offset, kuint length) {
-	read_array(array, address + offset, length, movsl);
-	return length;
+kfunction void kmemory_linear_read_kuint_array(kuint address, kuint* array, kuint length) {
+	read_array(array, address, length, movsl);
 }
-kfunction kuint kmemory_linear_read_kuint8_array(kuint address, kuint8* array, kuint offset, kuint length) {
-	read_array(array, address + offset, length, movsb);
-	return length;
+kfunction void kmemory_linear_read_kuint8_array(kuint address, kuint8* array, kuint length) {
+	read_array(array, address, length, movsb);
 }
-kfunction kuint kmemory_linear_read_kuint16_array(kuint address, kuint16* array, kuint offset, kuint length) {
-	read_array(array, address + offset, length, movsw);
-	return length;
+kfunction void kmemory_linear_read_kuint16_array(kuint address, kuint16* array, kuint length) {
+	read_array(array, address, length, movsw);
 }
-kfunction kuint kmemory_linear_read_kuint32_array(kuint address, kuint32* array, kuint offset, kuint length) {
-	read_array(array, address + offset, length, movsl);
-	return length;
+kfunction void kmemory_linear_read_kuint32_array(kuint address, kuint32* array, kuint length) {
+	read_array(array, address, length, movsl);
 }
-kfunction kuint kmemory_linear_read_kuint64_array(kuint address, kuint64* array, kuint offset, kuint length) {
-	read_array(array, address + offset, length * 2, movsl);
-	return length;
+kfunction void kmemory_linear_read_kuint64_array(kuint address, kuint64* array, kuint length) {
+	read_array(array, address, length * 2, movsl);
 }
 
-kfunction kuint kmemory_linear_write_kuint_array(kuint address, kuint* array, kuint offset, kuint length) {
-	read_array(address + offset, array, length, movsl);
-	return length;
+kfunction void kmemory_linear_write_kuint_array(kuint address, kuint* array, kuint length) {
+	read_array(address, array, length, movsl);
 }
-kfunction kuint kmemory_linear_write_kuint8_array(kuint address, kuint8* array, kuint offset, kuint length) {
-	read_array(address + offset, array, length, movsb);
-	return length;
+kfunction void kmemory_linear_write_kuint8_array(kuint address, kuint8* array, kuint length) {
+	read_array(address, array, length, movsb);
 }
-kfunction kuint kmemory_linear_write_kuint16_array(kuint address, kuint16* array, kuint offset, kuint length) {
-	read_array(address + offset, array, length, movsw);
-	return length;
+kfunction void kmemory_linear_write_kuint16_array(kuint address, kuint16* array, kuint length) {
+	read_array(address, array, length, movsw);
 }
-kfunction kuint kmemory_linear_write_kuint32_array(kuint address, kuint32* array, kuint offset, kuint length) {
-	read_array(address + offset, array, length, movsl);
-	return length;
+kfunction void kmemory_linear_write_kuint32_array(kuint address, kuint32* array, kuint length) {
+	read_array(address, array, length, movsl);
 }
-kfunction kuint kmemory_linear_write_kuint64_array(kuint address, kuint64* array, kuint offset, kuint length) {
-	read_array(address + offset, array, length * 2, movsl);
-	return length;
+kfunction void kmemory_linear_write_kuint64_array(kuint address, kuint64* array, kuint length) {
+	read_array(address, array, length * 2, movsl);
 }
 
 kfunction void* kmemory_virtual_copy(void* destination, void* source, kuint size) {
@@ -478,7 +461,6 @@ kfunction void* kmemory_virtual_copy(void* destination, void* source, kuint size
 		"2: ;"
 		: "=&c" (d0), "=&D" (d1), "=&S" (d2)
 		: "q" (size), "0" (size / 4), "1" (destination), "2" (source)
-		: "memory"
 	);
 
 	return destination_copy;
@@ -499,7 +481,6 @@ kfunction void* kmemory_virtual_fill(void* pointer, kuint size, kuint8 value) {
 		"1: ;"
 		: "=&c" (d0), "=&D" (d1)
 		: "q" (size), "0" (size / 2), "1" (pointer), "a" (value)
-		: "memory"
 	);
 
 	return pointer_copy;
@@ -603,7 +584,6 @@ void clear_pages(kuint address, kuint count) {
 		"stosl ;"
 		: "=&c" (d0), "=&D" (d1)
 		: "0" (count * 1024), "1" (address), "a" (0)
-		: "memory"
 	);
 }
 
@@ -616,18 +596,17 @@ void copy_pages(kuint destination, kuint source, kuint count) {
 		"movsl ;"
 		: "=&c" (d0), "=&D" (d1), "=&S" (d2)
 		: "0" (count * 1024), "1" (destination), "2" (source)
-		: "memory"
 	);
 }
 
-void print_page_table() {
+void print_page_table(void) {
 	kuint* ptd;
 	kuint i1;
 
 /*
 	kprintf("Zones\n");
 	for(i1 = 0; i1 < ZONE_COUNT; i1++) {
-		kprintf("%x %x %x\n", zones[i1].next, zones[i1].start, zones[i1].end);
+		kprintf("%08x %08x %08x\n", zones[i1].next, zones[i1].start, zones[i1].end);
 	}
 */
 /*
@@ -638,11 +617,11 @@ void print_page_table() {
 			kuint* pt = (kuint*)(ptd[i1] & 0xFFFFF000);
 			kuint i2;
 
-			kprintf("%x %x %x %x\n", i1, (i1 << 22), ptd[i1], &ptd[i1]);
+			kprintf("%08x %08x %08x %08x\n", i1, (i1 << 22), ptd[i1], &ptd[i1]);
 
 			for(i2 = 0; i2 < 1024; i2++) {
 				if(pt[i2] & (LINEAR_ALLOCATED)) {
-					kprintf(" %x %x %x %x %x\n", i1, i2, ((i1 << 22) | (i2 << 12)), pt[i2], &pt[i2]);
+					kprintf(" %08x %08x %08x %08x %08x\n", i1, i2, ((i1 << 22) | (i2 << 12)), pt[i2], &pt[i2]);
 				}
 			}
 		}
@@ -655,11 +634,11 @@ void print_page_table() {
 			kuint* pt = (kuint*)(ptd[i1] & 0xFFFFF000);
 			kuint i2;
 
-			kprintf("%x %x %x %x\n", i1, (i1 << 22), ptd[i1], &ptd[i1]);
+			kprintf("%08x %08x %08x %08x\n", i1, (i1 << 22), ptd[i1], &ptd[i1]);
 
 			for(i2 = 0; i2 < 1024; i2++) {
 				if(pt[i2] & (VIRTUAL_ALLOCATED | VIRTUAL_ASSIGNED)) {
-					kprintf(" %x %x %x %x %x\n", i1, i2, ((i1 << 22) | (i2 << 12)), pt[i2], &pt[i2]);
+					kprintf(" %08x %08x %08x %08x %08x\n", i1, i2, ((i1 << 22) | (i2 << 12)), pt[i2], &pt[i2]);
 				}
 			}
 		}
@@ -776,11 +755,9 @@ kuint read_elf(kuint8* buffer, kuint* entry) {
 
 void handle_page_fault(kuint number, struct processor_regs* regs) {
 	kuint cr2 = 0;
-	kuint* ebp;
 	kuint* page_table;
-	kuint irqsave;
 
-	kspinlock_lock_irqsave(&kmemory_spinlock, &irqsave);
+	kspinlock_lock(&kmemory_spinlock);
 
 	asm volatile(
 		"movl %%cr2, %0 ;"
@@ -805,25 +782,22 @@ void handle_page_fault(kuint number, struct processor_regs* regs) {
 				clear_pages(cr2_local, 1); 
 			}
 
-			kspinlock_unlock_irqrestore(&kmemory_spinlock, &irqsave);
+			kspinlock_unlock(&kmemory_spinlock);
 
 			return;
 		}
 	}
 
-	kspinlock_unlock_irqrestore(&kmemory_spinlock, &irqsave);
+	kspinlock_unlock(&kmemory_spinlock);
 
 	kprintf(
-		"Page Fault\ncr2: %x\neip: %x\nerror: %x\n",
+		"Page Fault\ncr2: %08x\neip: %08x\nerror: %08x\n",
 		cr2,
 		regs->eip,
 		regs->error
 	);
 
-	kprintf("Stack trace (almost)\n");
-	for(ebp = (kuint*)regs->ebp; ebp; ebp = (kuint*)ebp[0]) {
-		kprintf("%x\n", ebp[1]);
-	}
+	print_stack_trace(regs);
 
 	kthread_kill_current();
 }

@@ -6,10 +6,10 @@
  * this archive for more details.
  */
 
-#ifndef _kimplementation_h
-#define _kimplementation_h
+#ifndef _rjk_kimplementation_h
+#define _rjk_kimplementation_h
 
-#define KERNEL_VERSION 0
+#define KERNEL_IMPLEMENTATION_VERSION 0
 
 #include <stdarg.h>
 
@@ -33,13 +33,8 @@ typedef long double kfloat;
 typedef float kfloat32;
 typedef double kfloat64;
 
-typedef struct ktime {
-	kuint64 second;
-	kuint32 nanosecond;
-} ktime;
-
 typedef struct kmutex kmutex;
 typedef struct kcondition kcondition;
 
-#endif /* _kimplementation_h */
+#endif /* _rjk_kimplementation_h */
 

@@ -20,7 +20,7 @@ static kuint cached_irq_mask;
 
 volatile kuint kirq_spinlock;
 
-kfunction void kirq_init() {
+kfunction void kirq_init(void) {
 	extern kuint16 idt[];
 	kuint i = 0;
 
@@ -64,11 +64,13 @@ void handle_exception(kuint number, struct processor_regs* regs) {
 		: "0" (cr0), "1" (cr1), "2" (cr2), "3" (cr3), "4" (cr4)
 	);
 
-	kprintf("Exception=%x\n", number);
-	kprintf("eflags=%x cs=%x eip=%x error=%x\n", regs->eflags, regs->cs, regs->eip, regs->error);
-	kprintf("eax=%x ebx=%x ecx=%x edx=%x\n", regs->eax, regs->ebx, regs->ecx, regs->edx);
-	kprintf("edi=%x esi=%x ebp=%x esp=%x\n", regs->edi, regs->esi, regs->ebp, regs->esp);
-	kprintf("cr0=%x cr1=%x cr2=%x cr3=%x cr4=%x\n", cr0, cr1, cr2, cr3, cr4);
+	kprintf("Exception=%02x\n", number);
+	kprintf("eflags=%08x cs=%08x eip=%08x error=%08x\n", regs->eflags, regs->cs, regs->eip, regs->error);
+	kprintf("eax=%08x ebx=%08x ecx=%08x edx=%08x\n", regs->eax, regs->ebx, regs->ecx, regs->edx);
+	kprintf("edi=%08x esi=%08x ebp=%08x esp=%08x\n", regs->edi, regs->esi, regs->ebp, regs->esp);
+	kprintf("cr0=%08x cr1=%08x cr2=%08x cr3=%08x cr4=%08x\n", cr0, cr1, cr2, cr3, cr4);
+
+	print_stack_trace(regs);
 
 	kthread_kill_current();
 }
@@ -106,11 +108,7 @@ void handle_irq(kuint number, struct processor_regs* regs) {
 	}
 }
 
-kfunction void kirq_enable_irq(kuint irq) {
-	kuint flags;
-
-	kspinlock_lock_irqsave(&kirq_spinlock, &flags);
-
+kfunction void kirq_enable_irq_internal(kuint irq) {
 	cached_irq_mask &= (~(1 << irq));
 
 	if(irq & 8) {
@@ -118,15 +116,15 @@ kfunction void kirq_enable_irq(kuint irq) {
 	} else {
 		kioport_out_kuint8(0x21, cached_21); /* OCW1: Mask interrupt */
 	}
-
-	kspinlock_unlock_irqrestore(&kirq_spinlock, &flags);
 }
 
-kfunction void kirq_disable_irq(kuint irq) {
-	kuint flags;
+kfunction void kirq_enable_irq(kuint irq) {
+	kspinlock_lock(&kirq_spinlock);
+	kirq_enable_irq_internal(irq);
+	kspinlock_unlock(&kirq_spinlock);
+}
 
-	kspinlock_lock_irqsave(&kirq_spinlock, &flags);
-
+kfunction void kirq_disable_irq_internal(kuint irq) {
 	cached_irq_mask |= (1 << irq);
 
 	if(irq & 8) {
@@ -134,58 +132,53 @@ kfunction void kirq_disable_irq(kuint irq) {
 	} else {
 		kioport_out_kuint8(0x21, cached_21); /* OCW1: Mask interrupt */
 	}
-
-	kspinlock_unlock_irqrestore(&kirq_spinlock, &flags);
 }
 
-kfunction void kirq_enable_all() {
+kfunction void kirq_disable_irq(kuint irq) {
+	kspinlock_lock(&kirq_spinlock);
+	kirq_disable_irq_internal(irq);
+	kspinlock_unlock(&kirq_spinlock);
+}
+
+kfunction void kirq_enable_all(void) {
 	asm volatile(
 		"sti ;"
-		:
-		:
-		: "memory"
 	);
 }
 
-kfunction void kirq_disable_all() {
+kfunction void kirq_disable_all(void) {
 	asm volatile(
 		"cli ;"
-		:
-		:
-		: "memory"
 	);
 }
 
 kfunction kuint kirq_assign_irq(kuint irq, kuint (*handler)(kuint irq)) {
 	kuint rc = 0;
-	kuint flags;
 
-	kspinlock_lock_irqsave(&kirq_spinlock, &flags);
+	kspinlock_lock(&kirq_spinlock);
 
 	if(irq < 16) {
 		if(interrupt_handler[irq + 32].handler == KNULL) {
 			interrupt_handler[irq + 32].handler = handler;
-			kirq_enable_irq(irq);
+			kirq_enable_irq_internal(irq);
 
 			rc = 1;
 		}
 	}
 
-	kspinlock_unlock_irqrestore(&kirq_spinlock, &flags);
+	kspinlock_unlock(&kirq_spinlock);
 
 	return rc;
 }
 
 kfunction void kirq_unassign_irq(kuint irq) {
-	kuint flags;
-
-	kspinlock_lock_irqsave(&kirq_spinlock, &flags);
+	kspinlock_lock(&kirq_spinlock);
 
 	if(irq < 16) {
-		kirq_disable_irq(irq);
+		kirq_disable_irq_internal(irq);
 		interrupt_handler[irq + 32].handler = KNULL;
 	}
 
-	kspinlock_unlock_irqrestore(&kirq_spinlock, &flags);
+	kspinlock_unlock(&kirq_spinlock);
 }
 

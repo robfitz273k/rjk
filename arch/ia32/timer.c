@@ -23,29 +23,29 @@ volatile kuint ktimer_spinlock;
 struct timer timer_list;
 kuint timer_count;
 
-void ktimer_init() {
+void ktimer_init(void) {
 	kthread_create(timer_thread, KNULL, 0);
 }
 
-kfunction kuint ktimer_add(void (*function)(void* data), void* data, kuint64 second, kuint32 nanosecond) {
-	kuint flags;
+kfunction kuint ktimer_add(void (*function)(void* data), void* data, kint64 second, kint32 nanosecond) {
 	struct timer* p;
 	struct timer* c;
 	struct timer* n;
 	kuint timer = 0;
-	ktime time;
+	kint64 local_second;
+	kint32 local_nanosecond;
 
-	kspinlock_lock_irqsave(&ktimer_spinlock, &flags);
+	kspinlock_lock(&ktimer_spinlock);
 
-	ktime_get(&time);
-	time.second += second;
-	time.nanosecond += nanosecond;
+	ktime_get(&local_second, &local_nanosecond);
+	local_second += second;
+	local_nanosecond += nanosecond;
 
 	p = &timer_list;
 	c = p->next;
 
 	while(c) {
-		if((time.second < c->second) || ((time.second == c->second) && (time.nanosecond <= c->nanosecond))) {
+		if((local_second < c->second) || ((local_second == c->second) && (local_nanosecond <= c->nanosecond))) {
 			break;
 		} else {
 			p = c;
@@ -60,11 +60,11 @@ kfunction kuint ktimer_add(void (*function)(void* data), void* data, kuint64 sec
 		timer = n->timer = ++timer_count;
 		n->function = function;
 		n->data = data;
-		n->second = time.second;
-		n->nanosecond = time.nanosecond;
+		n->second = local_second;
+		n->nanosecond = local_nanosecond;
 	}
 
-	kspinlock_unlock_irqrestore(&ktimer_spinlock, &flags);
+	kspinlock_unlock(&ktimer_spinlock);
 
 	return timer;
 }
@@ -73,24 +73,24 @@ kfunction void ktimer_remove(kuint timer) {
 }
 
 void timer_thread(void* data) {
-	kuint flags;
 	struct timer* p;
 	struct timer* c;
-	ktime time;
+	kint64 local_second;
+	kint32 local_nanosecond;
 
 	while(1) {
-		kspinlock_lock_irqsave(&ktimer_spinlock, &flags);
+		kspinlock_lock(&ktimer_spinlock);
 
 		p = &timer_list;
 		c = p->next;
 
-		ktime_get(&time);
+		ktime_get(&local_second, &local_nanosecond);
 
 		if(
 			(c)
 			&& (
-				(c->second < time.second)
-				|| ((c->second == time.second) && (c->nanosecond <= time.nanosecond))
+				(c->second < local_second)
+				|| ((c->second == local_second) && (c->nanosecond <= local_nanosecond))
 			)
 		) {
 			void (*function)(void* data) = c->function;
@@ -99,11 +99,11 @@ void timer_thread(void* data) {
 			p->next = c->next;
 			kmemory_virtual_page_unallocate(c);
 
-			kspinlock_unlock_irqrestore(&ktimer_spinlock, &flags);
+			kspinlock_unlock(&ktimer_spinlock);
 
 			function(data);
 		} else {
-			kspinlock_unlock_irqrestore(&ktimer_spinlock, &flags);
+			kspinlock_unlock(&ktimer_spinlock);
 			kthread_yield();
 		}
 	}

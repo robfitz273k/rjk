@@ -6,9 +6,7 @@
  * this archive for more details.
  */
 
-#include "kinterface.h"
-
-#define LOCK "lock ;"
+#include "internal.h"
 
 kfunction kuint katomic_get(volatile kuint* atomic) {
 	return (*atomic);
@@ -20,58 +18,73 @@ kfunction void katomic_set(volatile kuint* atomic, kuint value) {
 
 kfunction void katomic_inc(volatile kuint* atomic) {
 	asm volatile(
-		LOCK "incl %0 ;"
-		: "=m" (*atomic)
+		LOCK "incl (%0) ;"
+		: "=d" (atomic)
+		: "0" (atomic)
 	);
 }
 
 kfunction void katomic_dec(volatile kuint* atomic) {
 	asm volatile(
-		LOCK "decl %0 ;"
-		: "=m" (*atomic)
+		LOCK "decl (%0) ;"
+		: "=d" (atomic)
+		: "0" (atomic)
 	);
 }
 
 kfunction void katomic_add(volatile kuint* atomic, kuint value) {
 	asm volatile(
-		LOCK "addl %1, %0 ;"
-		: "=m" (*atomic)
-		: "r" (value)
+		LOCK "addl %1, (%0) ;"
+		: "=d" (atomic)
+		: "c" (value), "0" (atomic)
 	);
 }
 
 kfunction void katomic_sub(volatile kuint* atomic, kuint value) {
 	asm volatile(
-		LOCK "subl %1, %0 ;"
-		: "=m" (*atomic)
-		: "r" (value)
+		LOCK "subl %1, (%0) ;"
+		: "=d" (atomic)
+		: "c" (value), "0" (atomic)
 	);
 }
 
 kfunction kuint katomic_dec_and_test(volatile kuint* atomic) {
-	kuint8 test;
+	kuint test = 0;
 
 	asm volatile(
-		LOCK "decl %0 ;"
-		"sete %1 ;"
-		: "=m" (*atomic), "=m" (test)
+		LOCK "decl (%0) ;"
+		"sete %b1 ;"
+		: "=d" (atomic), "=a" (test)
+		: "0" (atomic), "1" (test)
 	);
 
-	return test != 0;
+	return test;
+}
+
+kfunction kuint katomic_inc_and_test(volatile kuint* atomic) {
+	kuint test = 0;
+
+	asm volatile(
+		LOCK "incl (%0) ;"
+		"sete %b1 ;"
+		: "=d" (atomic), "=a" (test)
+		: "0" (atomic), "1" (test)
+	);
+
+	return test;
 }
 
 kfunction kuint katomic_compare(volatile kuint* atomic, kuint compare) {
-	kuint8 test;
+	kuint test = 0;
 
 	asm volatile(
-		LOCK "subl %2, %0 ;"
-		"sete %1 ;"
-		: "=q" (compare), "=m" (test)
-		: "m" (*atomic), "0" (compare)
-		: "memory"
+		LOCK "subl %1, (%0) ;"
+		"sete %b2 ;"
+		: "=d" (atomic), "=c" (compare), "=a" (test)
+		: "0" (atomic), "1" (compare), "2" (test)
 	);
 
-	return test != 0;
+	return test;
 }
 
 kfunction kuint katomic_compare_and_set_if_equal(volatile kuint* atomic, kuint compare, kuint value) {
@@ -91,28 +104,44 @@ kfunction kuint katomic_compare_and_set_if_equal(volatile kuint* atomic, kuint c
 
 	return test;
 #else
-	kuint8 test;
+	kuint test;
 
 	asm volatile(
-		LOCK "cmpxchgl %3, %2 ;"
-		"sete %1 ;"
-		: "=a" (compare), "=m" (test)
-		: "m" (*atomic), "q" (value), "0" (compare)
-		: "memory"
+		LOCK "cmpxchgl %3, (%0) ;"
+		"xor %1, %1 ;"
+		"sete %b1 ;"
+		: "=d" (atomic), "=a" (test)
+		: "a" (compare), "c" (value), "0" (atomic)
 	);
 
-	return test != 0;
+	return test;
 #endif
 }
 
+kfunction void katomic_mask_set(volatile kuint* atomic, kuint mask) {
+	asm volatile(
+		LOCK "orl (%0), %1 ;"
+		: "=d" (atomic)
+		: "r" (mask), "0" (atomic)
+	);
+}
+
+kfunction void katomic_mask_clear(volatile kuint* atomic, kuint mask) {
+	asm volatile(
+		LOCK "andl (%0), %1 ;"
+		: "=d" (atomic)
+		: "r" (~mask), "0" (atomic)
+	);
+}
+
 kfunction kuint katomic_bit_get(volatile kuint* atomic, kuint bit) {
-	kuint8 test;
+	kuint test = 0;
 
 	asm volatile(
-		LOCK "btl %2, %0 ;"
-		"setc %1 ;"
-		: "=m" (*atomic), "=m" (test)
-		: "ir" (bit)
+		LOCK "btl %2, (%0) ;"
+		"setc %b1 ;"
+		: "=d" (atomic), "=a" (test)
+		: "ic" (bit), "0" (atomic), "1" (test)
 	);
 
 	return test;
@@ -120,41 +149,41 @@ kfunction kuint katomic_bit_get(volatile kuint* atomic, kuint bit) {
 
 kfunction void katomic_bit_set(volatile kuint* atomic, kuint bit) {
 	asm volatile(
-		LOCK "btsl %1, %0 ;"
-		: "=m" (*atomic)
-		: "ir" (bit)
+		LOCK "btsl %1, (%0) ;"
+		: "=d" (atomic)
+		: "ic" (bit), "0" (atomic)
 	);
 }
 
 kfunction void katomic_bit_reset(volatile kuint* atomic, kuint bit) {
 	asm volatile(
-		LOCK "btrl %1, %0 ;"
-		: "=m" (*atomic)
-		: "ir" (bit)
+		LOCK "btrl %1, (%0) ;"
+		: "=d" (atomic)
+		: "ic" (bit), "0" (atomic)
 	);
 }
 
 kfunction kuint katomic_bit_test_and_set(volatile kuint* atomic, kuint bit) {
-	kuint8 test;
+	kuint test = 0;
 
 	asm volatile(
-		LOCK "btsl %2, %0 ;"
-		"setc %1 ;"
-		: "=m" (*atomic), "=m" (test)
-		: "ir" (bit)
+		LOCK "btsl %2, (%0) ;"
+		"setc %b1 ;"
+		: "=d" (atomic), "=a" (test)
+		: "ic" (bit), "0" (atomic), "1" (test)
 	);
 
 	return test;
 }
 
 kfunction kuint katomic_bit_test_and_reset(volatile kuint* atomic, kuint bit) {
-	kuint8 test;
+	kuint test = 0;
 
 	asm volatile(
-		LOCK "btrl %2, %0 ;"
-		"setc %1 ;"
-		: "=m" (*atomic), "=m" (test)
-		: "ir" (bit)
+		LOCK "btrl %2, (%0) ;"
+		"setc %b1 ;"
+		: "=d" (atomic), "=a" (test)
+		: "ic" (bit), "0" (atomic), "1" (test)
 	);
 
 	return test;

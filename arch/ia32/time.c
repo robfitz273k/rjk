@@ -13,21 +13,20 @@
 	((__v & 0xF) + ((__v >> 4) * 10)); \
 })
 
-void ktimer_check(ktime* time);
-
-ktime current_time;
+kint64 current_second;
+kint32 current_nanosecond;
 kuint thread_ticks;
 kuint time_ticks;
 volatile kuint ktime_spinlock;
 
-void read_rtc(volatile ktime* t) {
+void read_rtc(kint64* second, kint32* nanosecond) {
 	kuint value;
-	kuint year;
-	kuint month;
-	kuint day;
-	kuint hour;
-	kuint minute;
-	kuint second;
+	kuint local_year;
+	kuint local_month;
+	kuint local_day;
+	kuint local_hour;
+	kuint local_minute;
+	kuint local_second;
 
 	do {
 		kioport_out_kuint8(0x70, 0x0A);
@@ -35,27 +34,27 @@ void read_rtc(volatile ktime* t) {
 	} while(value & 0x80);
 
 	kioport_out_kuint8(0x70, 0x32); /* Century */
-	year = (100 * bcd_to_binary(kioport_in_kuint8(0x71)));
+	local_year = (100 * bcd_to_binary(kioport_in_kuint8(0x71)));
 	kioport_out_kuint8(0x70, 0x09); /* Year */
-	year += bcd_to_binary(kioport_in_kuint8(0x71));
+	local_year += bcd_to_binary(kioport_in_kuint8(0x71));
 	kioport_out_kuint8(0x70, 0x08); /* Month */
-	month = bcd_to_binary(kioport_in_kuint8(0x71));
+	local_month = bcd_to_binary(kioport_in_kuint8(0x71));
 	kioport_out_kuint8(0x70, 0x07); /* Day */
-	day = bcd_to_binary(kioport_in_kuint8(0x71));
+	local_day = bcd_to_binary(kioport_in_kuint8(0x71));
 	kioport_out_kuint8(0x70, 0x04); /* Hour */
-	hour = bcd_to_binary(kioport_in_kuint8(0x71));
+	local_hour = bcd_to_binary(kioport_in_kuint8(0x71));
 	kioport_out_kuint8(0x70, 0x02); /* Minute */
-	minute = bcd_to_binary(kioport_in_kuint8(0x71));
+	local_minute = bcd_to_binary(kioport_in_kuint8(0x71));
 	kioport_out_kuint8(0x70, 0x00); /* Second */
-	second = bcd_to_binary(kioport_in_kuint8(0x71));
+	local_second = bcd_to_binary(kioport_in_kuint8(0x71));
 
-	if(0 >= (kint)(month -= 2)) {
-		month += 12;
-		year -= 1;
+	if(0 >= (kint)(local_month -= 2)) {
+		local_month += 12;
+		local_year -= 1;
 	}
 
-	t->second = ((kint64)(((((year / 4) - (year / 100) + (year / 400) + ((367 * month) / 12) + day) + (year * 365) - 719499) * 24 + hour) * 60 + minute) * 60 + second);
-	t->nanosecond = 0;
+	*second = ((kint64)(((((local_year / 4) - (local_year / 100) + (local_year / 400) + ((367 * local_month) / 12) + local_day) + (local_year * 365) - 719499) * 24 + local_hour) * 60 + local_minute) * 60 + local_second);
+	*nanosecond = 0;
 }
 
 kuint rtc_irq_handler(kuint number) {
@@ -67,15 +66,15 @@ kuint rtc_irq_handler(kuint number) {
 	kspinlock_lock(&ktime_spinlock);
 
 	if(value & 0x40) { /* Periodic interrupt */
-		current_time.nanosecond += (1000000000 / 1024);
+		current_nanosecond += (1000000000 / 1024);
 	}
 
 	if(value & 0x10) { /* Update ended interrupt */
 		if(time_ticks--) {
-			current_time.second++;
-			current_time.nanosecond = 0;
+			current_second++;
+			current_nanosecond = 0;
 		} else {
-			read_rtc(&current_time);
+			read_rtc(&current_second, &current_nanosecond);
 			time_ticks = 37;
 		}
 	}
@@ -90,7 +89,7 @@ kuint rtc_irq_handler(kuint number) {
 	return 0;
 }
 
-void ktime_init() {
+void ktime_init(void) {
 	kuint8 value;
 
 	do {
@@ -111,30 +110,26 @@ void ktime_init() {
 	kioport_out_kuint8(0x70, 0x0C);
 	value = kioport_in_kuint8(0x71); /* acknowledge interrupt */
 
-	read_rtc(&current_time);
+	read_rtc(&current_second, &current_nanosecond);
 
 	kirq_assign_irq(8, rtc_irq_handler);
 }
 
-kfunction void ktime_get(ktime* t) {
-	kuint flags;
+kfunction void ktime_get(kint64* second, kint32* nanosecond) {
+	kspinlock_lock(&ktime_spinlock);
 
-	kspinlock_lock_irqsave(&ktime_spinlock, &flags);
+	*second = current_second;
+	*nanosecond = current_nanosecond;
 
-	t->second = current_time.second;
-	t->nanosecond = current_time.nanosecond;
-
-	kspinlock_unlock_irqrestore(&ktime_spinlock, &flags);
+	kspinlock_unlock(&ktime_spinlock);
 }
 
-kfunction void ktime_set(ktime* t) {
-	kuint flags;
+kfunction void ktime_set(kint64 second, kint32 nanosecond) {
+	kspinlock_lock(&ktime_spinlock);
 
-	kspinlock_lock_irqsave(&ktime_spinlock, &flags);
+	current_second = second;
+	current_nanosecond = nanosecond;
 
-	current_time.second = t->second;
-	current_time.nanosecond = t->nanosecond;
-
-	kspinlock_unlock_irqrestore(&ktime_spinlock, &flags);
+	kspinlock_unlock(&ktime_spinlock);
 }
 

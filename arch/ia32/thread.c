@@ -21,19 +21,20 @@ struct thread {
 	void* stack;
 	kuint stack_size;
 	kuint esp;
-	ktime time;
+	kint64 second;
+	kint32 nanosecond;
 	kuint8 fpu[108];
 };
 
-struct thread* schedule_thread();
-void cleanup_thread();
+struct thread* schedule_thread(void);
+void cleanup_thread(void);
 void thread_switch(struct processor_regs* regs);
 
 struct thread* current_thread;
 struct thread* thread_list;
 volatile kuint kthread_spinlock;
 
-kuint kthread_setup() {
+kuint kthread_setup(void) {
 	current_thread = (void*)kmemory_linear_page_allocate(1, 1);
 
 	current_thread->status = STATUS_ALIVE;
@@ -50,7 +51,6 @@ kuint kthread_setup() {
 kfunction kuint kthread_create(void (*function)(void* data), void* data, kint priority) {
 	struct thread* ntp;
 	kuint* stack;
-	kuint irqsave;
 
 	if((ntp = kmemory_virtual_page_allocate(1, 1))) {
 		ntp->status = STATUS_ALIVE;
@@ -78,18 +78,15 @@ kfunction kuint kthread_create(void (*function)(void* data), void* data, kint pr
 			stack[-13] = 0; /* ebp */
 			stack[-14] = 0; /* esp */
 
-			kspinlock_lock_irqsave(&kthread_spinlock, &irqsave);
+			kspinlock_lock(&kthread_spinlock);
 
 			ntp->next = current_thread->next;
 			current_thread->next = ntp;
 
-			kspinlock_unlock_irqrestore(&kthread_spinlock, &irqsave);
+			kspinlock_unlock(&kthread_spinlock);
 
 			asm volatile(
 				"int $0x30 ;"
-				:
-				:
-				: "memory"
 			);
 		} else {
 			kmemory_virtual_page_unallocate(ntp);
@@ -100,104 +97,85 @@ kfunction kuint kthread_create(void (*function)(void* data), void* data, kint pr
 	return (kuint)ntp;
 }
 
-kfunction kuint kthread_current() {
+kfunction kuint kthread_current(void) {
 	return (kuint)current_thread;
 }
 
-kfunction void kthread_yield() {
+kfunction void kthread_yield(void) {
 	asm volatile(
 		"int $0x30 ;"
-		:
-		:
-		: "memory"
 	);
 }
 
 kfunction void kthread_sleep(kuint thread, kint64 second, kint32 nanosecond) {
-	kuint irqsave;
 	struct thread* local_thread = (struct thread*)thread;
 
-	kspinlock_lock_irqsave(&kthread_spinlock, &irqsave);
+	kspinlock_lock(&kthread_spinlock);
 
-	ktime_get(&local_thread->time);
+	ktime_get(&local_thread->second, &local_thread->nanosecond);
 
-	local_thread->time.second += second;
-	local_thread->time.nanosecond += nanosecond;
+	local_thread->second += second;
+	local_thread->nanosecond += nanosecond;
 
 	local_thread->status |= STATUS_SLEEP;
 
-	kspinlock_unlock_irqrestore(&kthread_spinlock, &irqsave);
+	kspinlock_unlock(&kthread_spinlock);
 
 	if(local_thread == current_thread) {
 		asm volatile(
 			"int $0x30 ;"
-			:
-			:
-			: "memory"
 		);
 	}
 }
 
-void kthread_kill_current() {
+void kthread_kill_current(void) {
 	kthread_kill((kuint)current_thread);
 }
 
 kfunction void kthread_kill(kuint thread) {
-	kuint irqsave;
 	struct thread* local_thread = (struct thread*)thread;
 
-	kspinlock_lock_irqsave(&kthread_spinlock, &irqsave);
+	kspinlock_lock(&kthread_spinlock);
 
 	local_thread->status &= ~STATUS_ALIVE;
 
-	kspinlock_unlock_irqrestore(&kthread_spinlock, &irqsave);
+	kspinlock_unlock(&kthread_spinlock);
 
 	if(local_thread == current_thread) {
 		asm volatile(
 			"int $0x30 ;"
-			:
-			:
-			: "memory"
 		);
 	}
 }
 
 kfunction void kthread_suspend(kuint thread) {
-	kuint irqsave;
 	struct thread* local_thread = (struct thread*)thread;
 
-	kspinlock_lock_irqsave(&kthread_spinlock, &irqsave);
+	kspinlock_lock(&kthread_spinlock);
 
 	local_thread->status |= STATUS_SUSPEND;
 
-	kspinlock_unlock_irqrestore(&kthread_spinlock, &irqsave);
+	kspinlock_unlock(&kthread_spinlock);
 
 	if(local_thread == current_thread) {
 		asm volatile(
 			"int $0x30 ;"
-			:
-			:
-			: "memory"
 		);
 	}
 }
 
 kfunction void kthread_resume(kuint thread) {
-	kuint irqsave;
 	struct thread* local_thread = (struct thread*)thread;
 
-	kspinlock_lock_irqsave(&kthread_spinlock, &irqsave);
+	kspinlock_lock(&kthread_spinlock);
 
 	local_thread->status &= ~STATUS_SUSPEND;
 
-	kspinlock_unlock_irqrestore(&kthread_spinlock, &irqsave);
+	kspinlock_unlock(&kthread_spinlock);
 
 	if(local_thread == current_thread) {
 		asm volatile(
 			"int $0x30 ;"
-			:
-			:
-			: "memory"
 		);
 	}
 }
@@ -222,20 +200,21 @@ kfunction void* kthread_key_get(kuint thread) {
 	return ((struct thread*)thread)->key;
 }
 
-struct thread* schedule_thread() {
+struct thread* schedule_thread(void) {
 	struct thread* ntp;
-	ktime time;
+	kint64 second;
+	kint32 nanosecond;
 
-	ktime_get(&time);
+	ktime_get(&second, &nanosecond);
 
 	for(ntp = current_thread->next; ntp; ntp = ntp->next) {
 		if(ntp->status & (STATUS_SLEEP)) {
 			if(
-				(ntp->time.second < time.second)
-				|| ((ntp->time.second == time.second) && (ntp->time.nanosecond <= time.nanosecond))
+				(ntp->second < second)
+				|| ((ntp->second == second) && (ntp->nanosecond <= nanosecond))
 			) {
-				ntp->time.second = 0;
-				ntp->time.nanosecond = 0;
+				ntp->second = 0;
+				ntp->nanosecond = 0;
 				ntp->status &= ~STATUS_SLEEP;
 				break;
 			} else {
@@ -252,15 +231,11 @@ struct thread* schedule_thread() {
 }
 
 void thread_switch(struct processor_regs* regs) {
-	kuint irqsave;
-
-	kspinlock_lock_irqsave(&kthread_spinlock, &irqsave);
+	kspinlock_lock(&kthread_spinlock);
 
 	asm volatile(
 		"fsave %0 ;"
 		: "=m" (current_thread->fpu)
-		:
-		: "memory"
 	);
 
 	current_thread->esp = regs->esp;
@@ -272,10 +247,20 @@ void thread_switch(struct processor_regs* regs) {
 	asm volatile(
 		"frstor %0 ;"
 		: "=m" (current_thread->fpu)
-		:
-		: "memory"
 	);
 
-	kspinlock_unlock_irqrestore(&kthread_spinlock, &irqsave);
+	kspinlock_unlock(&kthread_spinlock);
+}
+
+void print_stack_trace(struct processor_regs* regs) {
+	kuint* stack = (kuint*)regs->ebp;
+
+	kprintf("Stack Trace\n");
+
+	while(stack && stack[0]) {
+		kprintf("%08x %08x %08x %08x %08x\n", stack[1], stack[2], stack[3], stack[4], stack[5]);
+
+		stack = (kuint*)stack[0];
+	}
 }
 

@@ -11,7 +11,7 @@
 #define MAX_CONDITION_ENTRY_COUNT ((KPAGESIZE - sizeof(kcondition)) / sizeof(struct kcondition_entry))
 #define CONDITION_FLAG_SIGNALLED 0x00000001
 
-kfunction kcondition* kcondition_create() {
+kfunction kcondition* kcondition_create(void) {
 	return (kcondition*)kmemory_virtual_page_allocate(1, 0);
 }
 
@@ -116,7 +116,7 @@ done:
 	return 0;
 }
 
-kfunction kuint kcondition_timedwait(kcondition* condition, kmutex* mutex, kuint64 second, kuint32 nanosecond) {
+kfunction kuint kcondition_timedwait(kcondition* condition, kmutex* mutex, kint64 second, kint32 nanosecond) {
 	return -1;
 }
 

@@ -15,7 +15,7 @@ kuint _start(struct kinterface* _kinterface) {
 
 	kinterface = _kinterface;
 
-	if(!kinterface->kinterface_check_version(INTERFACE_VERSION, KERNEL_VERSION)) {
+	if(!kinterface->kinterface_check_version(KERNEL_INTERFACE_VERSION, KERNEL_IMPLEMENTATION_VERSION)) {
 		return 1;
 	}
 
@@ -27,8 +27,6 @@ kuint _start(struct kinterface* _kinterface) {
 			kinterface->kprintf("%s\n", info[i]);
 		}
 	}
-
-	kinterface->kprintf("<clinit>\n");
 
 	return 0;
 }

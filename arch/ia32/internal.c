@@ -45,9 +45,13 @@ struct kinterface _kinterface __attribute__ ((aligned(KPAGESIZE))) = {
 	katomic_sub,
 
 	katomic_dec_and_test,
+	katomic_inc_and_test,
 
 	katomic_compare,
 	katomic_compare_and_set_if_equal,
+
+	katomic_mask_set,
+	katomic_mask_clear,
 
 	katomic_bit_get,
 	katomic_bit_set,
@@ -91,17 +95,17 @@ struct kinterface _kinterface __attribute__ ((aligned(KPAGESIZE))) = {
 	kioport_out_kuint32,
 	kioport_out_kuint64,
 
-	kioport_in_kuint_port,
-	kioport_in_kuint8_port,
-	kioport_in_kuint16_port,
-	kioport_in_kuint32_port,
-	kioport_in_kuint64_port,
+	kioport_in_kuint_array,
+	kioport_in_kuint8_array,
+	kioport_in_kuint16_array,
+	kioport_in_kuint32_array,
+	kioport_in_kuint64_array,
 
-	kioport_out_kuint_port,
-	kioport_out_kuint8_port,
-	kioport_out_kuint16_port,
-	kioport_out_kuint32_port,
-	kioport_out_kuint64_port,
+	kioport_out_kuint_array,
+	kioport_out_kuint8_array,
+	kioport_out_kuint16_array,
+	kioport_out_kuint32_array,
+	kioport_out_kuint64_array,
 
 	/*
 	 * Kernel Interface: Spinlock
@@ -109,12 +113,17 @@ struct kinterface _kinterface __attribute__ ((aligned(KPAGESIZE))) = {
 
 	kspinlock_lock,
 	kspinlock_unlock,
-	kspinlock_read_lock,
-	kspinlock_read_unlock,
-	kspinlock_write_lock,
-	kspinlock_write_unlock,
 	kspinlock_lock_irqsave,
 	kspinlock_unlock_irqrestore,
+
+	/*
+	 * Kernel Interface: Read/Write Lock
+	 */
+
+	krwlock_read_lock,
+	krwlock_read_unlock,
+	krwlock_write_lock,
+	krwlock_write_unlock,
 
 	/*
 	 * Kernel Interface: Thread's
@@ -198,8 +207,8 @@ struct kinterface _kinterface __attribute__ ((aligned(KPAGESIZE))) = {
 	 * Kernel Interface: Processor
 	 */
 
-	kprocessor_save_flags,
-	kprocessor_restore_flags,
+	kprocessor_flags_save,
+	kprocessor_flags_restore,
 
 	kprocessor_byteswap_kuint,
 	kprocessor_byteswap_kuint8,
@@ -232,8 +241,8 @@ struct kinterface _kinterface __attribute__ ((aligned(KPAGESIZE))) = {
 
 kfunction kuint kinterface_check_version(kuint interface_version, kuint kernel_version) {
 	if(
-		(interface_version == INTERFACE_VERSION)
-		&& (kernel_version == KERNEL_VERSION)
+		(interface_version == KERNEL_INTERFACE_VERSION)
+		&& (kernel_version == KERNEL_IMPLEMENTATION_VERSION)
 	) {
 		return 1;
 	}
@@ -241,7 +250,7 @@ kfunction kuint kinterface_check_version(kuint interface_version, kuint kernel_v
 	return 0;
 }
 
-kfunction kuint8** kinterface_kernel_info() {
+kfunction kuint8** kinterface_kernel_info(void) {
 	return kernel_info;
 }
 

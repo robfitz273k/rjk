@@ -8,23 +8,21 @@
 
 #include "internal.h"
 
-kfunction void kprocessor_save_flags(kuint* flags) {
+kfunction void kprocessor_flags_save(kuint* flags) {
 	asm volatile(
 		"pushfl ;"
 		"popl %0 ;"
 		: "=g" (*flags)
-		:
-		: "memory"
+		: "0" (*flags)
 	);
 }
 
-kfunction void kprocessor_restore_flags(kuint* flags) {
+kfunction void kprocessor_flags_restore(kuint* flags) {
 	asm volatile(
 		"pushl %0 ;"
 		"popfl ;"
 		: "=g" (*flags)
-		:
-		: "memory"
+		: "0" (*flags)
 	);
 }
 
