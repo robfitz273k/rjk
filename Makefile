@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2000, 2001 Robert Fitzsimons
+# Copyright (C) 2000, 2001, 2024 Robert Fitzsimons
 #
 # This file is subject to the terms and conditions of the GNU General
 # Public License.  See the file "COPYING" in the main directory of
@@ -42,7 +42,7 @@ install : all
 	umount $(FLOPPY_MOUNT_POINT)
 
 CC = gcc
-CFLAGS = -O0 -g -Wall -Wstrict-prototypes
+CFLAGS = -m32 -O0 -g -Wall -Wstrict-prototypes
 CINC = -I include -I arch/ia32/include
 FLOPPY_MOUNT_POINT = /mnt/fd0
 
@@ -58,6 +58,6 @@ FLOPPY_MOUNT_POINT = /mnt/fd0
 		-o $@ $<
 
 %.elf :
-	$(CC) -nostartfiles -nostdlib -static $(ELF_LINKER_FLAGS) -o $@ $^ -lgcc
+	$(CC) -m32 -nostartfiles -nostdlib -static $(ELF_LINKER_FLAGS) -o $@ $^ -lgcc
 	objdump --disassemble-all --all-headers --line-numbers --source $@ > $@.out
 
