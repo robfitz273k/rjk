@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2000, 2001 Robert Fitzsimons
+ * Copyright (C) 2000, 2001, 2024 Robert Fitzsimons
  *
  * This file is subject to the terms and conditions of the GNU General
  * Public License.  See the file "COPYING" in the main directory of
@@ -13,7 +13,7 @@ kfunction kuint kioport_in_kuint(kuint port) {
 	asm volatile(
 		"inl %%dx, %%eax ;"
 		: "=a" (value)
-		: "d" (port), "0" (value)
+		: "d" (port)
 	);
 	return value;
 }
@@ -23,7 +23,7 @@ kfunction kuint8 kioport_in_kuint8(kuint port) {
 	asm volatile(
 		"inb %%dx, %%al ;"
 		: "=a" (value)
-		: "d" (port), "0" (value)
+		: "d" (port)
 	);
 	return value;
 }
@@ -33,7 +33,7 @@ kfunction kuint16 kioport_in_kuint16(kuint port) {
 	asm volatile(
 		"inw %%dx, %%ax ;"
 		: "=a" (value)
-		: "d" (port), "0" (value)
+		: "d" (port)
 	);
 	return value;
 }
@@ -43,7 +43,7 @@ kfunction kuint32 kioport_in_kuint32(kuint port) {
 	asm volatile(
 		"inl %%dx, %%eax ;"
 		: "=a" (value)
-		: "d" (port), "0" (value)
+		: "d" (port)
 	);
 	return value;
 }
