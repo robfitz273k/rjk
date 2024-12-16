@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2000, 2001 Robert Fitzsimons
+ * Copyright (C) 2000, 2001, 2024 Robert Fitzsimons
  *
  * This file is subject to the terms and conditions of the GNU General
  * Public License.  See the file "COPYING" in the main directory of
@@ -94,9 +94,9 @@ kfunction kuint (*katomic_bit_test_and_reset)(volatile kuint* atomic, kuint bit)
  * Kernel Interface: Printing
  */
 
-kfunction kint (*kprintf)(kuint8* format, ...);
-kfunction kint (*kvprintf)(kuint8* format, va_list args);
-kfunction kint (*kvsprintf)(kuint8* buffer, kuint8* format, va_list args);
+kfunction kint (*kprintf)(char* format, ...);
+kfunction kint (*kvprintf)(char* format, va_list args);
+kfunction kint (*kvsprintf)(kuint8* buffer, char* format, va_list args);
 
 /*
  * Kernel Interface: IRQ's

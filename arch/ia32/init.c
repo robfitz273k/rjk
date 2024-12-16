@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2000, 2001 Robert Fitzsimons
+ * Copyright (C) 2000, 2001, 2024 Robert Fitzsimons
  *
  * This file is subject to the terms and conditions of the GNU General
  * Public License.  See the file "COPYING" in the main directory of
@@ -29,7 +29,7 @@ kuint setup(struct multiboot_info* mb_info_local) {
 	mb_info = mb_info_local;
 
 	if(!(mb_info->flags & 1)) {
-		raw_print("RJK needs to have it's data page-aligned by GRUB\n");
+		raw_print((kuint8*)"RJK needs to have it's data page-aligned by GRUB\n");
 		while(1) {}
 	}
 
@@ -47,7 +47,7 @@ kuint setup(struct multiboot_info* mb_info_local) {
 			mb_max = max(mb_max, mod->mod_end);
 		}
 	} else {
-		raw_print("RJK needs to have a module passed in by GRUB\n");
+		raw_print((kuint8*)"RJK needs to have a module passed in by GRUB\n");
 		while(1) {}
 	}
 

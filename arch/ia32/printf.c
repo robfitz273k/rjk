@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2000, 2001 Robert Fitzsimons
+ * Copyright (C) 2000, 2001, 2024 Robert Fitzsimons
  *
  * This file is subject to the terms and conditions of the GNU General
  * Public License.  See the file "COPYING" in the main directory of
@@ -105,7 +105,7 @@ void raw_print(kuint8* buffer) {
 	}
 }
 
-kfunction kint kprintf(kuint8* format, ...) {
+kfunction kint kprintf(char* format, ...) {
 	kuint count;
 	va_list args;
 
@@ -116,7 +116,7 @@ kfunction kint kprintf(kuint8* format, ...) {
 	return count;
 }
 
-kfunction kint kvprintf(kuint8* format, va_list args) {
+kfunction kint kvprintf(char* format, va_list args) {
 	kuint count;
 	kuint irqsave;
 
@@ -130,7 +130,7 @@ kfunction kint kvprintf(kuint8* format, va_list args) {
 	return count;
 }
 
-kfunction kint kvsprintf(kuint8* buffer, kuint8* format, va_list args) {
+kfunction kint kvsprintf(kuint8* buffer, char* format, va_list args) {
 	kuint c;
 	kuint8* local_buffer = buffer;
 
@@ -249,7 +249,7 @@ kfunction kint kvsprintf(kuint8* buffer, kuint8* format, va_list args) {
 					if(t) {
 						write_string((kuint8*)t, &local_buffer);
 					} else {
-						write_string("(null)", &local_buffer);
+						write_string((kuint8*)"(null)", &local_buffer);
 					}
 					continue;
 				case 'p':
@@ -257,7 +257,7 @@ kfunction kint kvsprintf(kuint8* buffer, kuint8* format, va_list args) {
 					if(t) {
 						write_number_kuint32((kuint32)t, (flags | FLAG_ALTERNATE | FLAG_HEX | FLAG_UNSIGNED), width, &local_buffer);
 					} else {
-						write_string("(nil)", &local_buffer);
+						write_string((kuint8*)"(nil)", &local_buffer);
 					}
 					continue;
 				case 'X':
@@ -285,7 +285,7 @@ kfunction kint kvsprintf(kuint8* buffer, kuint8* format, va_list args) {
 			}
 		}
 
-		write_string("<format error,", &local_buffer);
+		write_string((kuint8*)"<format error,", &local_buffer);
 		write_character(c, &local_buffer);
 		write_character('>', &local_buffer);
 		break;
