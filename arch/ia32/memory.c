@@ -143,7 +143,7 @@ void kmemory_virtual_setup(void) {
 		kuint* pt = (kuint*)linear_page_table_directory[i1];
 
 		if((kuint)pt & (LINEAR_ALLOCATED)) {
-			(kuint)pt &= 0xFFFFF000;
+			pt = (kuint*)((kuint)pt & 0xFFFFF000);
 			set_virtual_entry((kuint)pt, (kuint)pt, (VIRTUAL_ALLOCATED | VIRTUAL_READWRITE | VIRTUAL_USERSUPER | VIRTUAL_LINEAR));
 			set_linear_entry((kuint)pt, (kuint)pt, (LINEAR_ALLOCATED));
 
