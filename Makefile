@@ -58,6 +58,6 @@ FLOPPY_MOUNT_POINT = /mnt/fd0
 		-o $@ $<
 
 %.elf :
-	$(CC) -m32 -nostartfiles -nostdlib -static $(ELF_LINKER_FLAGS) -o $@ $^ -lgcc
+	$(CC) -m32 -nostartfiles -nostdlib -static $(ELF_LINKER_FLAGS) -o $@ $^
 	objdump --disassemble-all --all-headers --line-numbers --source $@ > $@.out
 
