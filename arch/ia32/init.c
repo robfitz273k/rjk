@@ -36,7 +36,7 @@ kuint setup(struct multiboot_info* mb_info_local) {
 	mem_lower = (mb_info->mem_lower * 1024);
 	mem_upper = ((mb_info->mem_upper * 1024) + (1024 * 1024));
 
-	if(mb_info->flags & 8) {
+	if((mb_info->flags & 8) && (mb_info->mods_count)) {
 		struct multiboot_mod* mods_array = (void*)mb_info->mods_addr;
 		kuint i;
 
@@ -46,7 +46,8 @@ kuint setup(struct multiboot_info* mb_info_local) {
 			struct multiboot_mod* mod = (void*)&mods_array[i];
 			mb_max = max(mb_max, mod->mod_end);
 		}
-	} else {
+	}
+	if (0) { // FIXME 2024-12-19:  QEMU doesn't correctly support multiboot modules
 		raw_print((kuint8*)"RJK needs to have a module passed in by GRUB\n");
 		while(1) {}
 	}
@@ -56,7 +57,7 @@ kuint setup(struct multiboot_info* mb_info_local) {
 	linear_block((kuint)&_start, (kuint)&_end);
 	linear_block((kuint)mb_info, ((kuint)mb_info + sizeof(struct multiboot_info)));
 
-	if(mb_info->flags & 8) {
+	if((mb_info->flags & 8) && (mb_info->mods_count)) {
 		struct multiboot_mod* mods_array = (void*)mb_info->mods_addr;
 		kuint i;
 
@@ -82,7 +83,7 @@ void init(void) {
 
 	kirq_enable_all();
 
-	if(mb_info->flags & 8) {
+	if((mb_info->flags & 8) && (mb_info->mods_count)) {
 		struct multiboot_mod* mods_array = (void*)mb_info->mods_addr;
 		kuint i;
 
