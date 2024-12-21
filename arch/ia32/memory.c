@@ -547,7 +547,7 @@ kuint get_free_pages(kuint count, kuint zone) {
 
 		outer_loop:
 
-		while(i1 < outer_end) {
+		while(i1 <= outer_end) {
 			if(lptd[i1] & (LINEAR_ALLOCATED)) {
 				kuint* lpt = (kuint*)(lptd[i1] & 0xFFFFF000);
 
@@ -587,7 +587,8 @@ kuint get_free_pages(kuint count, kuint zone) {
 		}
 	}
 
-	kprintf("get_free_pages failed, %d %d", count, zone);
+	kprintf("get_free_pages failed, %d %d\n", count, zone);
+	while(1) {}
 
 	return 0;
 }
