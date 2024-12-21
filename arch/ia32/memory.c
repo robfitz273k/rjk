@@ -72,8 +72,8 @@ void linear_block(kuint start, kuint end);
 void print_page_table(void);
 extern void cleanup_thread(void);
 
-void kmemory_linear_setup(kuint mem_lower, kuint mem_upper, kuint mb_max) {
-	kuint linear_address = (((mb_max - 1) & 0xFFFFF000) + KPAGESIZE);
+void kmemory_linear_setup(kuint mem_lower, kuint mem_upper, kuint kernel_max) {
+	kuint linear_address = (((kernel_max - 1) & 0xFFFFF000) + KPAGESIZE);
 	kuint mem_end = (mem_upper >> 22);
 	kuint mem = 0;
 	kuint i1;

@@ -9,7 +9,7 @@
 #include "internal.h"
 #include "elf32.h"
 
-extern void kmemory_linear_setup(kuint mem_lower, kuint mem_upper, kuint mb_max);
+extern void kmemory_linear_setup(kuint mem_lower, kuint mem_upper, kuint kernel_max);
 extern void kmemory_virtual_setup(void);
 extern void linear_block(kuint start, kuint end);
 extern kuint kthread_setup(void);
@@ -24,7 +24,11 @@ kuint setup(struct multiboot_info* mb_info_local) {
 	extern void* _end;
 	kuint mem_lower;
 	kuint mem_upper;
-	kuint mb_max = (kuint)mb_info_local;
+	kuint kernel_max = 0;
+
+	kernel_max = max(kernel_max, (kuint)&_end);
+
+	kernel_max = max(kernel_max, (kuint)mb_info_local + sizeof(struct multiboot_info));
 
 	mb_info = mb_info_local;
 
@@ -40,11 +44,11 @@ kuint setup(struct multiboot_info* mb_info_local) {
 		struct multiboot_mod* mods_array = (void*)mb_info->mods_addr;
 		kuint i;
 
-		mb_max = max(mb_max, mods_array);
+		kernel_max = max(kernel_max, mods_array + sizeof(struct multiboot_mod));
 
 		for(i = 0; i < mb_info->mods_count; i++) {
 			struct multiboot_mod* mod = (void*)&mods_array[i];
-			mb_max = max(mb_max, mod->mod_end);
+			kernel_max = max(kernel_max, mod->mod_end);
 		}
 	}
 	if (0) { // FIXME 2024-12-19:  QEMU doesn't correctly support multiboot modules
@@ -52,7 +56,7 @@ kuint setup(struct multiboot_info* mb_info_local) {
 		while(1) {}
 	}
 
-	kmemory_linear_setup(mem_lower, mem_upper, mb_max);
+	kmemory_linear_setup(mem_lower, mem_upper, kernel_max);
 
 	linear_block((kuint)&_start, (kuint)&_end);
 	linear_block((kuint)mb_info, ((kuint)mb_info + sizeof(struct multiboot_info)));
