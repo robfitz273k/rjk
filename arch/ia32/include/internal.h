@@ -11,28 +11,56 @@
 
 #include "kinterface.h"
 
+// Multiboot Specification version 0.6.96
+// https://www.gnu.org/software/grub/manual/multiboot/multiboot.html#Boot-information-format
+
 struct multiboot_info {
-	kuint flags;
-	kuint mem_lower;
-	kuint mem_upper;
-	kuint boot_device;
-	kuint cmdline;
-	kuint mods_count;
-	kuint mods_addr;
-	kuint syms_0;
-	kuint syms_1;
-	kuint syms_2;
-	kuint syms_3;
-	kuint mmap_length;
-	kuint mmap_addr;
+	kuint32 flags;
+	kuint32 mem_lower;
+	kuint32 mem_upper;
+	kuint32 boot_device;
+	kuint32 cmdline;
+	kuint32 mods_count;
+	kuint32 mods_addr;
+	kuint32 syms_0;
+	kuint32 syms_1;
+	kuint32 syms_2;
+	kuint32 syms_3;
+	kuint32 mmap_length;
+	kuint32 mmap_addr;
+	kuint32 drives_length;
+	kuint32 drives_addr;
+	kuint32 config_table;
+	kuint32 boot_loader_name;
+	kuint32 apm_table;
+	kuint32 vbe_control_info;
+	kuint32 vbe_mode_info;
+	kuint16 vbe_mode;
+	kuint16 vbe_interface_seg;
+	kuint16 vbe_interface_off;
+	kuint16 vbe_interface_len;
+	kuint64 framebuffer_addr;
+	kuint32 framebuffer_pitch;
+	kuint32 framebuffer_width;
+	kuint32 framebuffer_height;
+	kuint8 framebuffer_bpp;
+	kuint8 framebuffer_type;
+	kuint8 color_info[6];
 };
 
 struct multiboot_mod {
-	kuint mod_start;
-	kuint mod_end;
-	kuint string;
-	kuint reserved;
+	kuint32 mod_start;
+	kuint32 mod_end;
+	kuint32 string;
+	kuint32 reserved;
 };
+
+struct multiboot_mmap {
+	kuint32 size;
+	kuint64 base_addr;
+	kuint64 length;
+	kuint32 type;
+} __attribute__ ((packed));
 
 struct processor_regs {
 	kuint esp;
