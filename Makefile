@@ -6,7 +6,7 @@
 # this archive for more details.
 #
 
-kernel.elf : ELF_LINKER_FLAGS=-Wl,-Ttext-segment,0x00100000
+kernel.elf : ELF_LINKER_FLAGS=-Wl,-Ttext-segment,0x00100000 -Wl,-z,noexecstack
 kernel.elf : \
 	arch/ia32/start.o \
 	arch/ia32/condition.o \
