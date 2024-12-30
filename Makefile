@@ -35,22 +35,24 @@ all : kernel.elf module.elf
 clean :
 	$(RM) arch/ia32/*.o module/*.o *.elf *.out *.log
 
+TARGET =
 CC = gcc
 CFLAGS = -m32 -O0 -g -Wall -Wstrict-prototypes
 CINC = -I include -I arch/ia32/include
+OBJDUMP = objdump
 
 .SUFFIXES :
 .SUFFIXES : .o .elf
 
 %.o : %.c
-	$(CC) $(CFLAGS) $(CFLAGS_EXTRA) $(CINC) -c \
+	$(TARGET)$(CC) $(CFLAGS) $(CFLAGS_EXTRA) $(CINC) -c \
 		-o $@ $<
 
 %.o : %.S
-	$(CC) $(CFLAGS) $(CFLAGS_EXTRA) $(CINC) -c \
+	$(TARGET)$(CC) $(CFLAGS) $(CFLAGS_EXTRA) $(CINC) -c \
 		-o $@ $<
 
 %.elf :
-	$(CC) -m32 -nostartfiles -nostdlib -static $(ELF_LINKER_FLAGS) -o $@ $^
-	objdump --disassemble-all --all-headers --line-numbers --source $@ > $@.out
+	$(TARGET)$(CC) -m32 -nostartfiles -nostdlib -static $(ELF_LINKER_FLAGS) -o $@ $^
+	$(TARGET)$(OBJDUMP) --disassemble-all --all-headers --line-numbers --source $@ > $@.out
 
