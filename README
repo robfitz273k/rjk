@@ -1,9 +1,45 @@
 RJK (Robert's JOS Kernel)
+=========================
 
-RJK is a kernel for The JOS Project <URL:http://www.jos.org/>.  It
-currently only supports x86 processors and requires a Linux system
-to build it.
+RJK was my attempt to write a kernel for The JOS Project
+<URL:https://jos.sourceforge.net/>, which had the goal of writing an Open
+Source Java based Operating System (JOS).  I was actively involved with JOS
+from around 1997 to 2002.
 
-Robert Fitzsimons
-robfitz@273k.net
+The goal with RJK was to provide a minimal set of low-level features to get a
+Java Virtual Machine (JVM) running; the reset of the kernel, drivers, and OS
+would be written in the Java language.
+
+Multiboot (GRUB) is used to load the RJK kernel and initial OS module images.
+The kernel is written in C and Assembly (using gcc) and only runs on i386
+compatible processors.  A Linux system running on a i386/x86-64 processor (or
+cross compiler) is needed to compile the kernel.
+
+Late in 2024 I imported the old tar.gz releases into GIT.  Then made the
+required changes to get RJK to compile with a modern version of gcc and to run
+with the QEMU emulator.
+
+
+Building and Running
+--------------------
+
+On a i386/x86-64 Linux system install a recent version of the gcc compiler,
+make, gdb, and the QEMU emulator with i386 support.
+
+To build:
+
+  make clean all
+
+To run:
+
+  qemu-system-i386 -display none -debugcon stdio -m 4M -kernel kernel.elf -initrd module.elf
+
+To debug the kernel with gdb:
+
+  qemu-system-i386 -display none -debugcon stdio -m 4M -kernel kernel.elf -initrd module.elf -s -S
+
+In a separate window run gdb:
+
+  gdb kernel.elf --eval-command="target remote localhost:1234" --eval-command="break _start"
+
 
